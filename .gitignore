@@ -1,0 +1,79 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# =========================
+# Flask
+# =========================
+instance/
+.webassets-cache
+
+# Archivos de entorno
+.env
+.env.*
+*.env
+
+# =========================
+# Logs y bases de datos
+# =========================
+*.log
+logs/
+*.sqlite3
+*.db
+
+# =========================
+# Cache / testing / coverage
+# =========================
+.cache/
+.pytest_cache/
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+*.cover
+
+# =========================
+# IDEs / Editores
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Sistema operativo
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Build / Distribución
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# =========================
+# Jupyter (por si pruebas algo)
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Archivos de configuración sensibles
+# =========================
+config.py
+secrets.json
