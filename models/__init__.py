@@ -7,12 +7,12 @@ from datetime import datetime
 
 class CatArea(db.Model):
     __tablename__ = 'cat_areas'
-    
+
     id_area = db.Column(db.Integer, primary_key=True)
     nombre_area = db.Column(db.String(50), nullable=False, unique=True)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id_area': self.id_area,
@@ -23,12 +23,12 @@ class CatArea(db.Model):
 
 class CatTipoActivo(db.Model):
     __tablename__ = 'cat_tipos_activo'
-    
+
     id_tipo_activo = db.Column(db.Integer, primary_key=True)
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id_tipo_activo': self.id_tipo_activo,
@@ -39,13 +39,13 @@ class CatTipoActivo(db.Model):
 
 class CatEstado(db.Model):
     __tablename__ = 'cat_estados'
-    
+
     id_estado = db.Column(db.Integer, primary_key=True)
     nombre_estado = db.Column(db.String(20), nullable=False, unique=True)
     descripcion = db.Column(db.Text)
     color_hex = db.Column(db.String(7))
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id_estado': self.id_estado,
@@ -57,12 +57,12 @@ class CatEstado(db.Model):
 
 class CatTipoMobiliario(db.Model):
     __tablename__ = 'cat_tipos_mobiliario'
-    
+
     id_tipo_mobiliario = db.Column(db.Integer, primary_key=True)
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id_tipo_mobiliario': self.id_tipo_mobiliario,
@@ -71,22 +71,22 @@ class CatTipoMobiliario(db.Model):
         }
 
 
-class CatRol(db.Model):
-    __tablename__ = 'cat_roles'
-    
-    id_rol = db.Column(db.Integer, primary_key=True)
-    nombre_rol = db.Column(db.String(30), nullable=False, unique=True)
-    descripcion = db.Column(db.Text)
-    nivel_acceso = db.Column(db.Integer)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def to_dict(self):
-        return {
-            'id_rol': self.id_rol,
-            'nombre_rol': self.nombre_rol,
-            'descripcion': self.descripcion,
-            'nivel_acceso': self.nivel_acceso
-        }
+# class CatRol(db.Model):
+#     __tablename__ = 'cat_roles'
+
+#     id_rol = db.Column(db.Integer, primary_key=True)
+#     nombre_rol = db.Column(db.String(30), nullable=False, unique=True)
+#     descripcion = db.Column(db.Text)
+#     nivel_acceso = db.Column(db.Integer)
+#     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+#     def to_dict(self):
+#         return {
+#             'id_rol': self.id_rol,
+#             'nombre_rol': self.nombre_rol,
+#             'descripcion': self.descripcion,
+#             'nivel_acceso': self.nivel_acceso
+#         }
 
 
 # ============================================
@@ -95,17 +95,17 @@ class CatRol(db.Model):
 
 class Usuario(db.Model):
     __tablename__ = 'usuario'
-    
+
     id_usuario = db.Column(db.Integer, primary_key=True)
     numero_nomina = db.Column(db.String(10), unique=True)
     nombre_usuario = db.Column(db.String(100), nullable=False)
     puesto = db.Column(db.String(80))
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relaciones
     area = db.relationship('CatArea', backref='usuarios')
-    
+
     def to_dict(self):
         return {
             'id_usuario': self.id_usuario,
@@ -119,21 +119,20 @@ class Usuario(db.Model):
 
 class Acceso(db.Model):
     __tablename__ = 'acceso'
-    
+
     id_acceso = db.Column(db.Integer, primary_key=True)
     nombre_usuario = db.Column(db.String(100), nullable=False)
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
     correo_electronico = db.Column(db.String(100), unique=True, nullable=False)
     contrasena_hash = db.Column(db.String(255), nullable=False)
-    rol_id = db.Column(db.Integer, db.ForeignKey('cat_roles.id_rol'))
     ultimo_acceso = db.Column(db.DateTime)
     fecha_registro = db.Column(db.Date, default=datetime.utcnow().date)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relaciones
-    rol = db.relationship('CatRol', backref='accesos')
     area = db.relationship('CatArea', backref='accesos')
-    
+    permisos = db.relationship('Permiso', backref='acceso', cascade='all, delete-orphan')
+
     def to_dict(self, include_password=False):
         data = {
             'id_acceso': self.id_acceso,
@@ -141,9 +140,6 @@ class Acceso(db.Model):
             'correo_electronico': self.correo_electronico,
             'area_id': self.area_id,
             'area': self.area.nombre_area if self.area else None,
-            'rol_id': self.rol_id,
-            'rol': self.rol.nombre_rol if self.rol else None,
-            'nivel_acceso': self.rol.nivel_acceso if self.rol else None,
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
             'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None
         }
@@ -151,12 +147,16 @@ class Acceso(db.Model):
             data['contrasena_hash'] = self.contrasena_hash
         return data
 
+    def permisos_dict(self):
+        """Devuelve los permisos del usuario indexados por módulo."""
+        return {p.modulo: p.to_dict() for p in self.permisos}
+
 
 class Permiso(db.Model):
     __tablename__ = 'permisos'
-    
+
     id_permiso = db.Column(db.Integer, primary_key=True)
-    rol_id = db.Column(db.Integer, db.ForeignKey('cat_roles.id_rol'))
+    acceso_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'), nullable=False)
     modulo = db.Column(db.String(50), nullable=False)
     puede_crear = db.Column(db.Boolean, default=False)
     puede_leer = db.Column(db.Boolean, default=True)
@@ -164,14 +164,16 @@ class Permiso(db.Model):
     puede_eliminar = db.Column(db.Boolean, default=False)
     puede_exportar = db.Column(db.Boolean, default=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relaciones
-    rol = db.relationship('CatRol', backref='permisos')
-    
+
+    __table_args__ = (
+        db.UniqueConstraint('acceso_id', 'modulo', name='uq_acceso_modulo'),
+    )
+
+
     def to_dict(self):
         return {
             'id_permiso': self.id_permiso,
-            'rol_id': self.rol_id,
+            'acceso_id': self.acceso_id,
             'modulo': self.modulo,
             'puede_crear': self.puede_crear,
             'puede_leer': self.puede_leer,
@@ -187,7 +189,7 @@ class Permiso(db.Model):
 
 class EquipoComputo(db.Model):
     __tablename__ = 'equipos_computo'
-    
+
     id_activo = db.Column(db.Integer, primary_key=True)
     tipo_activo_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_activo.id_tipo_activo'))
     nombre_activo = db.Column(db.String(50), nullable=False)
@@ -203,13 +205,13 @@ class EquipoComputo(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relaciones
     tipo_activo = db.relationship('CatTipoActivo')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
     especificaciones = db.relationship('EspecificacionEquipo', backref='equipo', cascade='all, delete-orphan')
-    
+
     def to_dict(self, include_specs=False):
         data = {
             'id_activo': self.id_activo,
@@ -237,14 +239,14 @@ class EquipoComputo(db.Model):
 
 class EspecificacionEquipo(db.Model):
     __tablename__ = 'especificaciones_equipo'
-    
+
     id_especificacion = db.Column(db.Integer, primary_key=True)
     equipo_id = db.Column(db.Integer, db.ForeignKey('equipos_computo.id_activo', ondelete='CASCADE'))
     nombre_especificacion = db.Column(db.String(100), nullable=False)
     valor_especificacion = db.Column(db.String(100), nullable=False)
     orden = db.Column(db.Integer, default=1)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id_especificacion': self.id_especificacion,
@@ -257,7 +259,7 @@ class EspecificacionEquipo(db.Model):
 
 class Mobiliario(db.Model):
     __tablename__ = 'mobiliario'
-    
+
     id_mueble = db.Column(db.Integer, primary_key=True)
     tipo_mobiliario_id = db.Column(db.Integer, db.ForeignKey('cat_tipos_mobiliario.id_tipo_mobiliario'))
     marca = db.Column(db.String(50))
@@ -273,12 +275,12 @@ class Mobiliario(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relaciones
     tipo_mobiliario = db.relationship('CatTipoMobiliario')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
-    
+
     def to_dict(self):
         return {
             'id_mueble': self.id_mueble,
@@ -303,7 +305,7 @@ class Mobiliario(db.Model):
 
 class HistorialMovimiento(db.Model):
     __tablename__ = 'historial_movimientos'
-    
+
     id_movimiento = db.Column(db.Integer, primary_key=True)
     tipo_registro = db.Column(db.String(20), nullable=False)
     id_registro = db.Column(db.Integer, nullable=False)
@@ -318,7 +320,7 @@ class HistorialMovimiento(db.Model):
     realizado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_movimiento = db.Column(db.DateTime, default=datetime.utcnow)
     observaciones = db.Column(db.Text)
-    
+
     def to_dict(self):
         return {
             'id_movimiento': self.id_movimiento,
