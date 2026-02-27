@@ -1,9 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app import db
-from models import CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario, CatRol
+from models import CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario
+from utils.decorators import require_permission
 
 catalogos_bp = Blueprint('catalogos', __name__)
+
+# ---- Áreas ----
 
 @catalogos_bp.route('/areas', methods=['GET'])
 @jwt_required()
@@ -12,6 +15,98 @@ def get_areas():
     areas = CatArea.query.all()
     return jsonify([a.to_dict() for a in areas]), 200
 
+@catalogos_bp.route('/areas', methods=['POST'])
+@jwt_required()
+@require_permission('catalogos', 'puede_crear')
+def create_area():
+    """Crear una nueva área"""
+    data = request.get_json()
+
+    if not data.get('nombre'):
+        return jsonify({
+            'error': 'El nombre del área es requerido'
+        }), 400
+
+    if CatArea.query.filter_by(nombre_area=data['nombre_area']).first():
+        return jsonify({
+            'error': 'El área ya existe'
+        }), 400
+
+    try:
+        area = CatArea(nombre_area=data['hombre_area'], descripcion=data.get('descripcion'))
+        db.session.add(area)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Área creada',
+            'area': area.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/areas/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_permission('catalogos', 'puede_actualizar')
+def update_area(id):
+    """Actualizar un área en particular"""
+    area = CatArea.query.get(id)
+
+    if not area:
+        return jsonify({
+            'error': 'Área no encontrada'
+        }), 404
+
+    data = request.get_json()
+
+    try:
+        if 'nombre_area' in data:
+            area.nombre_area = data['nombre_area']
+
+        if 'descripcion' in data:
+            area.descripcion = data['descripcion']
+
+        db.session.commit()
+        return jsonify({
+            'mensaje': 'Área actualizada',
+            'area': area.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/areas/<int:id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('catalogos', 'puede_eliminar')
+def delete_area(id):
+    """Eliminar un área en especifico"""
+    area = CatArea.query.get(id)
+
+    print(area)
+
+    if not area:
+        return jsonify({
+            'error': 'Área no encontrada'
+        }), 404
+
+    try:
+        db.session.delete(area)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Área eliminada'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+# ---- Tipos de Activo ----
 
 @catalogos_bp.route('/tipos-activo', methods=['GET'])
 @jwt_required()
@@ -20,6 +115,93 @@ def get_tipos_activo():
     tipos = CatTipoActivo.query.all()
     return jsonify([t.to_dict() for t in tipos]), 200
 
+@catalogos_bp.route('/tipos-activo', methods=['POST'])
+@jwt_required()
+@require_permission('catalogos', 'puede_crear')
+def create_tipo_activo():
+    """Crear un tipo de activo"""
+    data = request.get_json()
+
+    if not data.get('nombre_tipo'):
+        return jsonify({
+            'error': 'El nombre del tipo es requerido'
+        }), 200
+
+    if CatTipoActivo.query.filter_by(nombre_tipo=data['nombre_tipo']).first():
+        return jsonify({
+            'error': 'El tipo ya existe'
+        }), 400
+
+    try:
+        tipo = CatTipoActivo(nombre_tipo=data['nombre_tipo'], descripcion=data.get('descripcion'))
+        db.session.add(tipo)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Tipo de activo creado',
+            'tipo': tipo.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/tipos-activo/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_permission('catalogos', 'puede_actualizar')
+def update_tipo_activo(id):
+    """Actualizar tipo de activo"""
+    tipo = CatTipoActivo.query.get(id)
+
+    if not tipo:
+        return jsonify({
+            'error': 'Tipo no encontrado'
+        }), 404
+
+    data = request.get_json()
+
+    try:
+        if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
+        if 'descripcion' in data: tipo.descripcion = data['descripcion']
+
+        db.session.commit()
+        return jsonify({
+            'mensaje': 'tipo actualizado',
+            'tipo': tipo.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/tipos-activo/<int:id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('catalogos', 'puede_eliminar')
+def delete_tipo_activo(id):
+    """Eliminar un tipo de activo"""
+    tipo = CatTipoActivo.query.get(id)
+
+    if not tipo:
+        return jsonify({
+            'error': 'Tipo no encontrado'
+        }), 404
+
+    try:
+        db.session.delete(tipo)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Tipo elminado'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+# ---- Estados ----
 
 @catalogos_bp.route('/estados', methods=['GET'])
 @jwt_required()
@@ -28,6 +210,99 @@ def get_estados():
     estados = CatEstado.query.all()
     return jsonify([e.to_dict() for e in estados]), 200
 
+@catalogos_bp.route('/estados', methods=['POST'])
+@jwt_required()
+@require_permission('catalogos', 'puede_crear')
+def create_estado():
+    """Crear un nuevo estado"""
+    data = request.get_json()
+
+    if not data.get('nombre_estado'):
+        return jsonify({
+            'error': 'El nombre del estado es requerido'
+        }), 400
+
+    if CatEstado.query.filter_by(nombre_estado=data['nombre_estado']).first():
+        return jsonify({
+            'error': 'El estado ya existe'
+        }), 400
+
+    try:
+        estado = CatEstado(
+            nombre_estado=data['nombre_estado'],
+            descripcion=data.get('descripcion'),
+            color_hex=data.get('color_hex')
+        )
+
+        db.session.add(estado)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Estado creado',
+            'estado': estado.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/estados/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_permission('catalogos', 'puede_actualizar')
+def update_estado(id):
+    """Actualizar un estado"""
+    estado = CatEstado.query.get(id)
+
+    if not estado:
+        return jsonify({
+            'error': 'Estado no encontrado'
+        }), 404
+
+    data = request.get_json()
+
+    try:
+        if 'nombre_estado' in data: estado.nombre_estado = data['nombre_estado']
+        if 'descripcion' in data: estado.descripcion = data['descripcion']
+        if 'color_hex' in data: estado.color_hex = data['color_hex']
+
+        db.session.commit()
+        return jsonify({
+            'mensaje': 'Esatdo actualizado',
+            'estado': estado.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/estados/<int:id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('catalogos', 'puede_eliminar')
+def delete_estado(id):
+    """Eliminar un estado"""
+    estado = CatEstado.query.get(id)
+
+    if not estado:
+        return jsonify({
+            'error': 'Estado no encontrado'
+        }), 404
+
+    try:
+        db.session.delete(estado)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Estado elminado'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+# ----- Tipos de Mobiliario ----
 
 @catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
 @jwt_required()
@@ -36,10 +311,87 @@ def get_tipos_mobiliario():
     tipos = CatTipoMobiliario.query.all()
     return jsonify([t.to_dict() for t in tipos]), 200
 
-
-@catalogos_bp.route('/roles', methods=['GET'])
+@catalogos_bp.route('/tipos-mobiliario', methods=['POST'])
 @jwt_required()
-def get_roles():
-    """Listar roles"""
-    roles = CatRol.query.all()
-    return jsonify([r.to_dict() for r in roles]), 200
+@require_permission('catalogos', 'puede_crear')
+def create_tipo_mobiliario():
+    """Crear un nuevo tipo de mobiliario"""
+    data = request.get_json()
+
+    if not data.get('nombre_tipo'):
+        return jsonify({
+            'error': 'El nombre del tipo es requerido'
+        }), 400
+
+    if CatTipoMobiliario.query.filter_by(nombre_tipo=data['nombre_tipo']).first():
+        return jsonify({
+            'error': 'El tipo ya existe'
+        }), 400
+
+    try:
+        tipo = CatTipoMobiliario(nombre_activo=data['nombre_tipo'], descripcion=data.get('descripcion'))
+        db.session.add(tipo)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Tipo de mobiliario creado'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_permission('catalogos', 'puedo_actualizar')
+def update_tipo_mobiliario(id):
+    """Actualizar un tipo de mobiliario"""
+    tipo = CatTipoMobiliario.query.get(id)
+
+    if not tipo:
+        return jsonify({
+            'error': 'Tipo no encontrado'
+        }), 404
+
+    data = request.get_json()
+
+    try:
+        if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
+        if 'descripcion' in data: tipo.descripcion = data['descripcion']
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'tipo actualizado',
+            'tipo': tipo.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('catalogos', 'puede_eliminar')
+def delete_tipo_mobiliario(id):
+    """Eliminar un tipo de mobiliario"""
+    tipo = CatTipoMobiliario.query.get(id)
+
+    if not tipo:
+        return jsonify({
+            'error': 'Tipo no encontrado'
+        }), 404
+
+    try:
+        db.session.delete(tipo)
+        db.session.commit()
+
+        return jsonify({
+            'mensaje': 'Tipo eliminado'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500

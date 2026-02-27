@@ -43,7 +43,7 @@ def get_equipos():
     
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
     return jsonify({
         'equipos': [equipo.to_dict() for equipo in pagination.items],
         'total': pagination.total,
