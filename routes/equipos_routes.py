@@ -6,50 +6,50 @@ from utils.decorators import require_permission
 
 equipos_bp = Blueprint('equipos', __name__)
 
-@equipos_bp.route('/', methods=['GET'])
-@jwt_required()
-@require_permission('computo', 'puede_leer')
-def get_equipos():
-    """Listar todos los equipos con filtros opcionales"""
-    # Parámetros de filtro
-    tipo_activo_id = request.args.get('tipo_activo_id', type=int)
-    estado_id = request.args.get('estado_id', type=int)
-    usuario_id = request.args.get('usuario_id', type=int)
-    search = request.args.get('search', '')
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+# @equipos_bp.route('/', methods=['GET'])
+# # @jwt_required()
+# # @require_permission('computo', 'puede_leer')
+# def get_equipos():
+#     """Listar todos los equipos con filtros opcionales"""
+#     # Parámetros de filtro
+#     tipo_activo_id = request.args.get('tipo_activo_id', type=int)
+#     estado_id = request.args.get('estado_id', type=int)
+#     usuario_id = request.args.get('usuario_id', type=int)
+#     search = request.args.get('search', '')
+#     page = request.args.get('page', 1, type=int)
+#     per_page = request.args.get('per_page', 50, type=int)
     
-    # Query base
-    query = EquipoComputo.query
+#     # Query base
+#     query = EquipoComputo.query
     
-    # Aplicar filtros
-    if tipo_activo_id:
-        query = query.filter_by(tipo_activo_id=tipo_activo_id)
-    if estado_id:
-        query = query.filter_by(estado_id=estado_id)
-    if usuario_id:
-        query = query.filter_by(usuario_asignado_id=usuario_id)
-    if search:
-        query = query.filter(
-            db.or_(
-                EquipoComputo.nombre_activo.ilike(f'%{search}%'),
-                EquipoComputo.marca.ilike(f'%{search}%'),
-                EquipoComputo.numero_serie.ilike(f'%{search}%')
-            )
-        )
+#     # Aplicar filtros
+#     if tipo_activo_id:
+#         query = query.filter_by(tipo_activo_id=tipo_activo_id)
+#     if estado_id:
+#         query = query.filter_by(estado_id=estado_id)
+#     if usuario_id:
+#         query = query.filter_by(usuario_asignado_id=usuario_id)
+#     if search:
+#         query = query.filter(
+#             db.or_(
+#                 EquipoComputo.nombre_activo.ilike(f'%{search}%'),
+#                 EquipoComputo.marca.ilike(f'%{search}%'),
+#                 EquipoComputo.numero_serie.ilike(f'%{search}%')
+#             )
+#         )
     
-    # Ordenar por ID descendente
-    query = query.order_by(EquipoComputo.id_activo.desc())
+#     # Ordenar por ID descendente
+#     query = query.order_by(EquipoComputo.id_activo.desc())
     
-    # Paginación
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+#     # Paginación
+#     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    return jsonify({
-        'equipos': [equipo.to_dict() for equipo in pagination.items],
-        'total': pagination.total,
-        'pages': pagination.pages,
-        'current_page': page
-    }), 200
+#     return jsonify({
+#         'equipos': [equipo.to_dict() for equipo in pagination.items],
+#         'total': pagination.total,
+#         'pages': pagination.pages,
+#         'current_page': page
+#     }), 200
 
 
 @equipos_bp.route('/<int:id>', methods=['GET'])
