@@ -37,12 +37,16 @@ def create_app(config_class=Config):
     from routes.mobiliario_routes import mobiliario_bp
     from routes.usuarios_routes import usuarios_bp
     from routes.catalogos_routes import catalogos_bp
+    from routes.historial_routes import historial_bp
+    from routes.vistas_routes import vistas_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(equipos_bp, url_prefix='/api/equipos')
     app.register_blueprint(mobiliario_bp, url_prefix='/api/mobiliario')
     app.register_blueprint(usuarios_bp, url_prefix='/api/usuarios')
     app.register_blueprint(catalogos_bp, url_prefix='/api/catalogos')
+    app.register_blueprint(historial_bp, url_prefix=('/api/historial'))
+    app.register_blueprint(vistas_bp, url_prefix=('/api/vistas'))
     
     # Manejador de errores
     from utils.error_handlers import register_error_handlers

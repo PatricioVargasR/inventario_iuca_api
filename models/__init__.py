@@ -70,25 +70,6 @@ class CatTipoMobiliario(db.Model):
             'descripcion': self.descripcion
         }
 
-
-# class CatRol(db.Model):
-#     __tablename__ = 'cat_roles'
-
-#     id_rol = db.Column(db.Integer, primary_key=True)
-#     nombre_rol = db.Column(db.String(30), nullable=False, unique=True)
-#     descripcion = db.Column(db.Text)
-#     nivel_acceso = db.Column(db.Integer)
-#     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-
-#     def to_dict(self):
-#         return {
-#             'id_rol': self.id_rol,
-#             'nombre_rol': self.nombre_rol,
-#             'descripcion': self.descripcion,
-#             'nivel_acceso': self.nivel_acceso
-#         }
-
-
 # ============================================
 # USUARIOS Y ACCESOS
 # ============================================
@@ -181,7 +162,6 @@ class Permiso(db.Model):
             'puede_eliminar': self.puede_eliminar,
             'puede_exportar': self.puede_exportar
         }
-
 
 # ============================================
 # INVENTARIO
@@ -331,6 +311,257 @@ class HistorialMovimiento(db.Model):
             'usuario_nuevo_id': self.usuario_nuevo_id,
             'estado_anterior_id': self.estado_anterior_id,
             'estado_nuevo_id': self.estado_nuevo_id,
+            'campo_modificado': self.campo_modificado,
+            'valor_anterior': self.valor_anterior,
+            'valor_nuevo': self.valor_nuevo,
+            'realizado_por': self.realizado_por,
+            'fecha_movimiento': self.fecha_movimiento.isoformat() if self.fecha_movimiento else None,
+            'observaciones': self.observaciones
+        }
+
+# ============================================
+# VISTAS
+# ============================================
+
+class VistaEquiposCompleta(db.Model):
+    """
+    Vista completa de equipos con información relacionada
+    Corresponde a: vista_equipos_completa
+    """
+    __tablename__ = 'vista_equipos_completa'
+    __table_args__ = {'info': {'is_view': True}}
+
+    id_activo = db.Column(db.Integer, primary_key=True)
+    nombre_activo = db.Column(db.String(50))
+    tipo_activo = db.Column(db.String(30))
+    marca = db.Column(db.String(50))
+    modelo = db.Column(db.String(50))
+    numero_serie = db.Column(db.String(50))
+    estado = db.Column(db.String(20))
+    color_estado = db.Column(db.String(7))
+    fecha_registro = db.Column(db.Date)
+    observaciones = db.Column(db.Text)
+    sucursal = db.Column(db.String(50))
+    responsable = db.Column(db.String(100))
+    numero_nomina = db.Column(db.String(10))
+    puesto = db.Column(db.String(80))
+    area = db.Column(db.String(50))
+    creado_por = db.Column(db.String(100))
+    fecha_creacion = db.Column(db.DateTime)
+    modificado_por = db.Column(db.String(100))
+    fecha_modificacion = db.Column(db.DateTime)
+    especificaciones = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            'id_activo': self.id_activo,
+            'nombre_activo': self.nombre_activo,
+            'tipo_activo': self.tipo_activo,
+            'marca': self.marca,
+            'modelo': self.modelo,
+            'numero_serie': self.numero_serie,
+            'estado': self.estado,
+            'color_estado': self.color_estado,
+            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
+            'observaciones': self.observaciones,
+            'sucursal': self.sucursal,
+            'responsable': self.responsable,
+            'numero_nomina': self.numero_nomina,
+            'puesto': self.puesto,
+            'area': self.area,
+            'creado_por': self.creado_por,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
+            'modificado_por': self.modificado_por,
+            'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None,
+            'especificaciones': self.especificaciones
+        }
+
+
+class VistaMobiliarioCompleta(db.Model):
+    """
+    Vista completa de mobiliario con información relacionada
+    Corresponde a: vista_mobiliario_completa
+    """
+    __tablename__ = 'vista_mobiliario_completa'
+    __table_args__ = {'info': {'is_view': True}}
+    
+    id_mueble = db.Column(db.Integer, primary_key=True)
+    tipo_mobiliario = db.Column(db.String(30))
+    marca = db.Column(db.String(50))
+    modelo = db.Column(db.String(50))
+    color = db.Column(db.String(20))
+    caracteristicas = db.Column(db.Text)
+    observaciones = db.Column(db.Text)
+    estado = db.Column(db.String(20))
+    color_estado = db.Column(db.String(7))
+    fecha_asignacion = db.Column(db.Date)
+    sucursal = db.Column(db.String(50))
+    responsable = db.Column(db.String(100))
+    numero_nomina = db.Column(db.String(10))
+    puesto = db.Column(db.String(80))
+    area = db.Column(db.String(50))
+    creado_por = db.Column(db.String(100))
+    fecha_creacion = db.Column(db.DateTime)
+    modificado_por = db.Column(db.String(100))
+    fecha_modificacion = db.Column(db.DateTime)
+    
+    def to_dict(self):
+        return {
+            'id_mueble': self.id_mueble,
+            'tipo_mobiliario': self.tipo_mobiliario,
+            'marca': self.marca,
+            'modelo': self.modelo,
+            'color': self.color,
+            'caracteristicas': self.caracteristicas,
+            'observaciones': self.observaciones,
+            'estado': self.estado,
+            'color_estado': self.color_estado,
+            'fecha_asignacion': self.fecha_asignacion.isoformat() if self.fecha_asignacion else None,
+            'sucursal': self.sucursal,
+            'responsable': self.responsable,
+            'numero_nomina': self.numero_nomina,
+            'puesto': self.puesto,
+            'area': self.area,
+            'creado_por': self.creado_por,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
+            'modificado_por': self.modificado_por,
+            'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
+        }
+
+
+class VistaUsuariosCompleta(db.Model):
+    """
+    Vista de usuarios responsables con conteo de bienes asignados
+    Corresponde a: vista_usuarios_completa
+    """
+    __tablename__ = 'vista_usuarios_completa'
+    __table_args__ = {'info': {'is_view': True}}
+    
+    id_usuario = db.Column(db.Integer, primary_key=True)
+    numero_nomina = db.Column(db.String(10))
+    nombre_usuario = db.Column(db.String(100))
+    puesto = db.Column(db.String(80))
+    area = db.Column(db.String(50))
+    fecha_creacion = db.Column(db.DateTime)
+    equipos_asignados = db.Column(db.BigInteger)
+    mobiliario_asignado = db.Column(db.BigInteger)
+    
+    def to_dict(self):
+        return {
+            'id_usuario': self.id_usuario,
+            'numero_nomina': self.numero_nomina,
+            'nombre_usuario': self.nombre_usuario,
+            'puesto': self.puesto,
+            'area': self.area,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
+            'equipos_asignados': self.equipos_asignados,
+            'mobiliario_asignado': self.mobiliario_asignado
+        }
+
+
+class VistaAccesosCompleta(db.Model):
+    """
+    Vista de accesos al sistema con resumen de permisos
+    Corresponde a: vista_accesos_completa
+    """
+    __tablename__ = 'vista_accesos_completa'
+    __table_args__ = {'info': {'is_view': True}}
+    
+    id_acceso = db.Column(db.Integer, primary_key=True)
+    nombre_usuario = db.Column(db.String(100))
+    correo_electronico = db.Column(db.String(100))
+    area = db.Column(db.String(50))
+    fecha_registro = db.Column(db.Date)
+    ultimo_acceso = db.Column(db.DateTime)
+    modulos_con_crear = db.Column(db.BigInteger)
+    modulos_con_leer = db.Column(db.BigInteger)
+    modulos_con_actualizar = db.Column(db.BigInteger)
+    modulos_con_eliminar = db.Column(db.BigInteger)
+    
+    def to_dict(self):
+        return {
+            'id_acceso': self.id_acceso,
+            'nombre_usuario': self.nombre_usuario,
+            'correo_electronico': self.correo_electronico,
+            'area': self.area,
+            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
+            'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
+            'modulos_con_crear': self.modulos_con_crear,
+            'modulos_con_leer': self.modulos_con_leer,
+            'modulos_con_actualizar': self.modulos_con_actualizar,
+            'modulos_con_eliminar': self.modulos_con_eliminar
+        }
+
+
+class VistaPermisosDetalle(db.Model):
+    """
+    Vista detallada de permisos por usuario y módulo
+    Corresponde a: vista_permisos_detalle
+    """
+    __tablename__ = 'vista_permisos_detalle'
+    __table_args__ = {'info': {'is_view': True}}
+    
+    # Composite primary key
+    id_acceso = db.Column(db.Integer, primary_key=True)
+    modulo = db.Column(db.String(50), primary_key=True)
+    
+    nombre_usuario = db.Column(db.String(100))
+    correo_electronico = db.Column(db.String(100))
+    area = db.Column(db.String(50))
+    puede_leer = db.Column(db.Boolean)
+    puede_crear = db.Column(db.Boolean)
+    puede_actualizar = db.Column(db.Boolean)
+    puede_eliminar = db.Column(db.Boolean)
+    puede_exportar = db.Column(db.Boolean)
+    
+    def to_dict(self):
+        return {
+            'id_acceso': self.id_acceso,
+            'nombre_usuario': self.nombre_usuario,
+            'correo_electronico': self.correo_electronico,
+            'area': self.area,
+            'modulo': self.modulo,
+            'puede_leer': self.puede_leer,
+            'puede_crear': self.puede_crear,
+            'puede_actualizar': self.puede_actualizar,
+            'puede_eliminar': self.puede_eliminar,
+            'puede_exportar': self.puede_exportar
+        }
+
+
+class VistaHistorialCompleta(db.Model):
+    """
+    Vista completa del historial de movimientos
+    Corresponde a: vista_historial_completa
+    """
+    __tablename__ = 'vista_historial_completa'
+    __table_args__ = {'info': {'is_view': True}}
+    
+    id_movimiento = db.Column(db.Integer, primary_key=True)
+    tipo_registro = db.Column(db.String(20))
+    id_registro = db.Column(db.Integer)
+    tipo_movimiento = db.Column(db.String(50))
+    usuario_anterior = db.Column(db.String(100))
+    usuario_nuevo = db.Column(db.String(100))
+    estado_anterior = db.Column(db.String(20))
+    estado_nuevo = db.Column(db.String(20))
+    campo_modificado = db.Column(db.String(100))
+    valor_anterior = db.Column(db.Text)
+    valor_nuevo = db.Column(db.Text)
+    realizado_por = db.Column(db.String(100))
+    fecha_movimiento = db.Column(db.DateTime)
+    observaciones = db.Column(db.Text)
+    
+    def to_dict(self):
+        return {
+            'id_movimiento': self.id_movimiento,
+            'tipo_registro': self.tipo_registro,
+            'id_registro': self.id_registro,
+            'tipo_movimiento': self.tipo_movimiento,
+            'usuario_anterior': self.usuario_anterior,
+            'usuario_nuevo': self.usuario_nuevo,
+            'estado_anterior': self.estado_anterior,
+            'estado_nuevo': self.estado_nuevo,
             'campo_modificado': self.campo_modificado,
             'valor_anterior': self.valor_anterior,
             'valor_nuevo': self.valor_nuevo,
