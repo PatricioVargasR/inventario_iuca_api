@@ -7,7 +7,7 @@ import bcrypt
 
 usuarios_bp = Blueprint('usuarios', __name__)
 
-MODULOS_DISPONIBLES = ['computo', 'mobiliario', 'usuarios', 'catalogos', 'historial']
+MODULOS_DISPONIBLES = ['computo', 'mobiliario', 'responsable', 'catalogos', 'historial', 'acceso']
 
 # ============================================
 # RESPONSABLES (personas con bienes asignados)
@@ -32,7 +32,7 @@ def get_responsable(id):
 
 @usuarios_bp.route('/responsables', methods=['POST'])
 @jwt_required()
-@require_permission('usuarios', 'puede_crear')
+@require_permission('responsable', 'puede_crear')
 def create_responsable():
     """Crear usuario responsable"""
     data = request.get_json()
@@ -68,7 +68,7 @@ def create_responsable():
 
 @usuarios_bp.route('/responsables/<int:id>', methods=['PUT'])
 @jwt_required()
-@require_permission('usaurios', 'puede_actualizar')
+@require_permission('responsable', 'puede_actualizar')
 def update_responsable(id):
     """Actualizar uaurio responsable"""
     usuario = Usuario.query.get(id)
@@ -102,7 +102,7 @@ def update_responsable(id):
 
 @usuarios_bp.route('/responsables/<int:id>', methods=['DELETE'])
 @jwt_required()
-@require_permission('usuarios', 'puede_eliminar')
+@require_permission('responsable', 'puede_eliminar')
 def delete_responsable(id):
     """ELiminar el usuario responsable"""
     usuario = Usuario.query.get(id)
@@ -131,7 +131,7 @@ def delete_responsable(id):
 
 @usuarios_bp.route('/accesos', methods=['GET'])
 @jwt_required()
-@require_permission('usuarios', 'puede_leer')
+@require_permission('acceso', 'puede_leer')
 def get_accesos():
     """Listar cuentas de acceso con sus permisos """
     accesos = Acceso.query.all()
@@ -147,7 +147,7 @@ def get_accesos():
 
 @usuarios_bp.route('/accesos', methods=['POST'])
 @jwt_required()
-@require_permission('usuarios', 'puede_crear')
+@require_permission('acceso', 'puede_crear')
 def create_acceso():
     """Crear acceso al sistema"""
     data = request.get_json()
@@ -209,7 +209,7 @@ def create_acceso():
 
 @usuarios_bp.route('/accesos/<int:id>', methods=['PUT'])
 @jwt_required()
-@require_permission('usuarios', 'puede_actualizar')
+@require_permission('acceso', 'puede_actualizar')
 def update_acceso(id):
     """Actualizar cuenta de acceso y/o sus permisos"""
     acceso = Acceso.query.get(id)
@@ -283,7 +283,7 @@ def update_acceso(id):
 
 @usuarios_bp.route('/accesos/<int:id>', methods=['DELETE'])
 @jwt_required()
-@require_permission('usuarios', 'puede_eliminar')
+@require_permission('acceso', 'puede_eliminar')
 def delete_acceso(id):
     """Eliminar cuenta de acceso (elimina permisos en cascada)"""
     acceso = Acceso.query.get(id)
