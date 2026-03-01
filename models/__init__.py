@@ -1,5 +1,6 @@
 from app import db
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSON
 
 # ============================================
 # CATÁLOGOS
@@ -461,23 +462,24 @@ class VistaUsuariosCompleta(db.Model):
 
 class VistaAccesosCompleta(db.Model):
     """
-    Vista de accesos al sistema con resumen de permisos
+    Vista detallada de accesos con módulos y permisos
     Corresponde a: vista_accesos_completa
     """
     __tablename__ = 'vista_accesos_completa'
     __table_args__ = {'info': {'is_view': True}}
-    
+
+    # Datos del usuario
     id_acceso = db.Column(db.Integer, primary_key=True)
     nombre_usuario = db.Column(db.String(100))
     correo_electronico = db.Column(db.String(100))
     area = db.Column(db.String(50))
     fecha_registro = db.Column(db.Date)
+    fecha_creacion = db.Column(db.DateTime)
     ultimo_acceso = db.Column(db.DateTime)
-    modulos_con_crear = db.Column(db.BigInteger)
-    modulos_con_leer = db.Column(db.BigInteger)
-    modulos_con_actualizar = db.Column(db.BigInteger)
-    modulos_con_eliminar = db.Column(db.BigInteger)
-    
+
+    # Datos del módulo
+    permisos = db.Column(JSON)
+
     def to_dict(self):
         return {
             'id_acceso': self.id_acceso,
@@ -485,11 +487,9 @@ class VistaAccesosCompleta(db.Model):
             'correo_electronico': self.correo_electronico,
             'area': self.area,
             'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
-            'modulos_con_crear': self.modulos_con_crear,
-            'modulos_con_leer': self.modulos_con_leer,
-            'modulos_con_actualizar': self.modulos_con_actualizar,
-            'modulos_con_eliminar': self.modulos_con_eliminar
+            'permisos': self.permisos
         }
 
 
