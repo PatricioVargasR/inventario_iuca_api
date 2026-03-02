@@ -144,6 +144,22 @@ def get_accesos():
 
     return jsonify(resultado), 200
 
+@usuarios_bp.route('/accesos/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('acceso', 'puede_leer')
+def get_acceso(id):
+    """Obtener un acceso mediante su ID"""
+    acceso = Acceso.query.get(id)
+
+    if not acceso:
+        return jsonify({
+            'error': 'Acceso no encontrado'
+        }), 404
+
+    datos = acceso.to_dict()
+    datos['permisos'] = acceso.permisos_dict()
+
+    return jsonify(datos), 200
 
 @usuarios_bp.route('/accesos', methods=['POST'])
 @jwt_required()
@@ -179,8 +195,8 @@ def create_acceso():
         # Crear permisos directamente por módulo
         permisos_data = data.get('permisos', {})
 
-        for modulo in MODULOS_DISPONIBLES:
-            p_modulo = permisos_data.get(modulo, {})
+        for indice, modulo in enumerate(MODULOS_DISPONIBLES):
+            p_modulo = permisos_data[indice]
             permiso = Permiso(
                 acceso_id = acceso.id_acceso,
                 modulo = modulo,
@@ -189,6 +205,7 @@ def create_acceso():
                 puede_actualizar = p_modulo.get('puede_actualizar', False),
                 puede_eliminar = p_modulo.get('puede_eliminar', False),
             )
+            print(permiso.puede_leer, permiso.puede_crear, permiso.puede_actualizar, permiso.puede_eliminar)
             db.session.add(permiso)
 
         db.session.commit()
@@ -247,12 +264,16 @@ def update_acceso(id):
                 p_modulo = permisos_data.get(modulo, {})
                 permiso: Permiso = Permiso.query.filter_by(acceso_id=id, modulo=modulo).first()
 
+                print(p_modulo.get('puede_eliminar'))
+
                 if permiso:
                     # Actualizar existente
                     permiso.puede_leer = p_modulo.get('puede_leer', permiso.puede_leer)
                     permiso.puede_crear = p_modulo.get('puede_crear', permiso.puede_crear)
                     permiso.puede_actualizar = p_modulo.get('puede_actualizar', permiso.puede_actualizar)
-                    permiso.puede_eliminar = p_modulo.get('puede_elmininar', permiso.puede_leer)
+                    permiso.puede_eliminar = p_modulo.get('puede_eliminar', permiso.puede_eliminar)
+
+                    print(modulo, permiso.puede_eliminar)
                 elif p_modulo:
                     # Crear si no existía y se enviaron datos
                     nuevo = Permiso(
@@ -261,8 +282,7 @@ def update_acceso(id):
                         puede_leer = p_modulo.get('puede_leer', False),
                         puede_crear = p_modulo.get('puede_crear', False),
                         puede_actualizar = p_modulo.get('puede_actualizar', False),
-                        puede_eliminar = p_modulo.get('puede_eliminar', False),
-                        puede_exportar = p_modulo.get('puede_exportar', False)
+                        puede_eliminar = p_modulo.get('puede_eliminar', False)
                     )
                     db.session.add(nuevo)
 

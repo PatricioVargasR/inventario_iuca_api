@@ -78,7 +78,7 @@ def get_vista_equipos_completa():
 
 
 @vistas_bp.route('/equipo-completo/<int:id>', methods=['GET'])
-@jwt_required
+@jwt_required()
 @require_permission('computo', 'puede_leer')
 def get_equipo_completo(id):
     """Obtener un equipo por ID con especificaciones"""
@@ -153,8 +153,8 @@ def get_vista_mobiliario_completa():
 
 
 @vistas_bp.route('/mobiliario-completo/<int:id>', methods=['GET'])
-# @jwt_required()
-# @require_permission('mobiliario', 'puede_leer')
+@jwt_required()
+@require_permission('mobiliario', 'puede_leer')
 def get_mobiliario_completo(id):
     """Obtener un mobiliario mediante su ID"""
     mobiliario = VistaMobiliarioCompleta.query.get(id)
@@ -170,22 +170,23 @@ def get_mobiliario_completo(id):
 # VISTA DE USUARIOS CON CONTEO DE BIENES
 # ============================================
 
-@vistas_bp.route('/usuarios-completa', methods=['GET'])
+@vistas_bp.route('/usuarios-completo/', methods=['GET'])
 @jwt_required()
+@require_permission('responsable', 'puede_leer')
 def get_vista_usuarios_completa():
     """Obtener vista de usuarios responsables con conteo de bienes asignados"""
     search = request.args.get('search', '')
     area = request.args.get('area')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    
+
     # Query base usando el modelo
     query = VistaUsuariosCompleta.query
-    
+
     # Aplicar filtros
     if area:
         query = query.filter(VistaUsuariosCompleta.area == area)
-    
+
     if search:
         query = query.filter(
             or_(
@@ -194,13 +195,13 @@ def get_vista_usuarios_completa():
                 VistaUsuariosCompleta.puesto.ilike(f'%{search}%')
             )
         )
-    
+
     # Ordenar alfabéticamente por nombre
     query = query.order_by(VistaUsuariosCompleta.nombre_usuario.asc())
-    
+
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
     return jsonify({
         'usuarios': [u.to_dict() for u in pagination.items],
         'total': pagination.total,
@@ -208,48 +209,80 @@ def get_vista_usuarios_completa():
         'current_page': page
     }), 200
 
+@vistas_bp.route('/usuario-completo/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('responsable', 'puede_leer')
+def get_usuario_complet(id):
+    """Obtener un usuario mediante su ID"""
+    usuario = VistaUsuariosCompleta.query.get(id)
+
+    if not usuario:
+        return jsonify({
+            'error': 'Usuario no encontrado'
+        }), 404
+
+    return jsonify(usuario.to_dict()), 200
+
 
 # ============================================
 # VISTA DE ACCESOS CON RESUMEN DE PERMISOS
 # ============================================
 
-@vistas_bp.route('/accesos-completa', methods=['GET'])
+@vistas_bp.route('/accesos-completo/', methods=['GET'])
 @jwt_required()
-@require_permission('usuarios', 'puede_leer')
+@require_permission('acceso', 'puede_leer')
 def get_vista_accesos_completa():
     """Obtener vista de accesos al sistema con resumen de permisos"""
     search = request.args.get('search', '')
-    area = request.args.get('area')
+    area = request.args.get('area_id')
+    # modulo = request.args.get('modulo_id')
+    # tipo = request.args.get('tipo_id')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    
+
+
     # Query base usando el modelo
     query = VistaAccesosCompleta.query
-    
+
     # Aplicar filtros
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
-    
+
     if search:
         query = query.filter(
             or_(
                 VistaAccesosCompleta.nombre_usuario.ilike(f'%{search}%'),
-                VistaAccesosCompleta.correo_electronico.ilike(f'%{search}%')
+                VistaAccesosCompleta.correo_electronico.ilike(f'%{search}%'),
+                VistaAccesosCompleta.area.ilike(f'%{search}%')
             )
         )
-    
+
     # Ordenar alfabéticamente por nombre
     query = query.order_by(VistaAccesosCompleta.nombre_usuario.asc())
-    
+
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
     return jsonify({
         'accesos': [a.to_dict() for a in pagination.items],
         'total': pagination.total,
         'pages': pagination.pages,
         'current_page': page
     }), 200
+
+@vistas_bp.route('/acceso-completo/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('acceso', 'puede_leer')
+def get_acceso_completo(id):
+    """Obtener un acceso mediante su ID"""
+    acceso = VistaAccesosCompleta.query.get(id)
+
+    if not acceso:
+        return jsonify({
+            'mensaje': 'Acceso no encontrado'
+        }), 404
+
+    return jsonify(acceso.to_dict()), 200
 
 
 # ============================================
@@ -258,35 +291,35 @@ def get_vista_accesos_completa():
 
 @vistas_bp.route('/permisos-detalle', methods=['GET'])
 @jwt_required()
-@require_permission('usuarios', 'puede_leer')
+@require_permission('acceso', 'puede_leer')
 def get_vista_permisos_detalle():
     """Obtener vista detallada de permisos por usuario y módulo"""
     usuario = request.args.get('usuario')
     modulo = request.args.get('modulo')
     area = request.args.get('area')
-    
+
     # Query base usando el modelo
     query = VistaPermisosDetalle.query
-    
+
     # Aplicar filtros
     if usuario:
         query = query.filter(VistaPermisosDetalle.nombre_usuario.ilike(f'%{usuario}%'))
-    
+
     if modulo:
         query = query.filter(VistaPermisosDetalle.modulo == modulo)
-    
+
     if area:
         query = query.filter(VistaPermisosDetalle.area == area)
-    
+
     # Ordenar por usuario y módulo
     query = query.order_by(
         VistaPermisosDetalle.nombre_usuario.asc(),
         VistaPermisosDetalle.modulo.asc()
     )
-    
+
     # Ejecutar query
     permisos = query.all()
-    
+
     return jsonify({
         'permisos': [p.to_dict() for p in permisos],
         'total': len(permisos)
@@ -310,35 +343,35 @@ def get_vista_historial_completa():
     fecha_hasta = request.args.get('fecha_hasta')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    
+
     # Query base usando el modelo
     query = VistaHistorialCompleta.query
-    
+
     # Aplicar filtros
     if tipo_registro:
         query = query.filter(VistaHistorialCompleta.tipo_registro == tipo_registro)
-    
+
     if id_registro:
         query = query.filter(VistaHistorialCompleta.id_registro == id_registro)
-    
+
     if tipo_movimiento:
         query = query.filter(VistaHistorialCompleta.tipo_movimiento == tipo_movimiento)
-    
+
     if realizado_por:
         query = query.filter(VistaHistorialCompleta.realizado_por.ilike(f'%{realizado_por}%'))
-    
+
     if fecha_desde:
         query = query.filter(VistaHistorialCompleta.fecha_movimiento >= fecha_desde)
-    
+
     if fecha_hasta:
         query = query.filter(VistaHistorialCompleta.fecha_movimiento <= fecha_hasta)
-    
+
     # Ordenar por fecha descendente (más recientes primero)
     query = query.order_by(VistaHistorialCompleta.fecha_movimiento.desc())
-    
+
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
     return jsonify({
         'movimientos': [m.to_dict() for m in pagination.items],
         'total': pagination.total,
@@ -355,7 +388,7 @@ def get_vista_historial_completa():
 @jwt_required()
 def get_estadisticas():
     """Obtener estadísticas generales del sistema"""
-    
+
     # Estadísticas de equipos usando el modelo
     total_equipos = VistaEquiposCompleta.query.count()
     funcionales = VistaEquiposCompleta.query.filter(
@@ -370,7 +403,7 @@ def get_estadisticas():
     equipos_asignados = VistaEquiposCompleta.query.filter(
         VistaEquiposCompleta.responsable.isnot(None)
     ).count()
-    
+
     # Estadísticas de mobiliario usando el modelo
     total_mobiliario = VistaMobiliarioCompleta.query.count()
     buenos = VistaMobiliarioCompleta.query.filter(
@@ -385,23 +418,23 @@ def get_estadisticas():
     mobiliario_asignado = VistaMobiliarioCompleta.query.filter(
         VistaMobiliarioCompleta.responsable.isnot(None)
     ).count()
-    
+
     # Estadísticas de usuarios usando agregación
     total_responsables = VistaUsuariosCompleta.query.count()
-    
+
     # Suma total de equipos asignados
     sum_equipos = db.session.query(
         func.sum(VistaUsuariosCompleta.equipos_asignados)
     ).scalar() or 0
-    
+
     # Suma total de mobiliario asignado
     sum_mobiliario = db.session.query(
         func.sum(VistaUsuariosCompleta.mobiliario_asignado)
     ).scalar() or 0
-    
+
     # Estadísticas de accesos
     total_accesos = VistaAccesosCompleta.query.count()
-    
+
     return jsonify({
         'equipos': {
             'total': total_equipos,
