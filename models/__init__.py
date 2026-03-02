@@ -144,7 +144,6 @@ class Permiso(db.Model):
     puede_leer = db.Column(db.Boolean, default=True)
     puede_actualizar = db.Column(db.Boolean, default=False)
     puede_eliminar = db.Column(db.Boolean, default=False)
-    puede_exportar = db.Column(db.Boolean, default=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -161,7 +160,6 @@ class Permiso(db.Model):
             'puede_leer': self.puede_leer,
             'puede_actualizar': self.puede_actualizar,
             'puede_eliminar': self.puede_eliminar,
-            'puede_exportar': self.puede_exportar
         }
 
 # ============================================
@@ -512,7 +510,6 @@ class VistaPermisosDetalle(db.Model):
     puede_crear = db.Column(db.Boolean)
     puede_actualizar = db.Column(db.Boolean)
     puede_eliminar = db.Column(db.Boolean)
-    puede_exportar = db.Column(db.Boolean)
     
     def to_dict(self):
         return {
@@ -525,7 +522,6 @@ class VistaPermisosDetalle(db.Model):
             'puede_crear': self.puede_crear,
             'puede_actualizar': self.puede_actualizar,
             'puede_eliminar': self.puede_eliminar,
-            'puede_exportar': self.puede_exportar
         }
 
 
