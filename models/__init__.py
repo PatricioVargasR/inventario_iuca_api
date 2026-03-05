@@ -11,6 +11,7 @@ class CatArea(db.Model):
 
     id_area = db.Column(db.Integer, primary_key=True)
     nombre_area = db.Column(db.String(50), nullable=False, unique=True)
+    activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -18,6 +19,7 @@ class CatArea(db.Model):
         return {
             'id_area': self.id_area,
             'nombre_area': self.nombre_area,
+            'activo': self.activo,
             'descripcion': self.descripcion
         }
 
@@ -27,6 +29,7 @@ class CatTipoActivo(db.Model):
 
     id_tipo_activo = db.Column(db.Integer, primary_key=True)
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
+    activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -34,6 +37,7 @@ class CatTipoActivo(db.Model):
         return {
             'id_tipo_activo': self.id_tipo_activo,
             'nombre_tipo': self.nombre_tipo,
+            'activo': self.activo,
             'descripcion': self.descripcion
         }
 
@@ -43,6 +47,7 @@ class CatEstado(db.Model):
 
     id_estado = db.Column(db.Integer, primary_key=True)
     nombre_estado = db.Column(db.String(20), nullable=False, unique=True)
+    activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     color_hex = db.Column(db.String(7))
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
@@ -51,6 +56,7 @@ class CatEstado(db.Model):
         return {
             'id_estado': self.id_estado,
             'nombre_estado': self.nombre_estado,
+            'activo': self.activo,
             'descripcion': self.descripcion,
             'color_hex': self.color_hex
         }
@@ -61,6 +67,7 @@ class CatTipoMobiliario(db.Model):
 
     id_tipo_mobiliario = db.Column(db.Integer, primary_key=True)
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
+    activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -68,6 +75,7 @@ class CatTipoMobiliario(db.Model):
         return {
             'id_tipo_mobiliario': self.id_tipo_mobiliario,
             'nombre_tipo': self.nombre_tipo,
+            'activo': self.activo,
             'descripcion': self.descripcion
         }
 
