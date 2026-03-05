@@ -15,6 +15,20 @@ def get_areas():
     areas = CatArea.query.all()
     return jsonify([a.to_dict() for a in areas]), 200
 
+@catalogos_bp.route('/areas/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos', 'puede_leer')
+def get_area(id):
+    """Obtener un área con base a su ID"""
+    area = CatArea.query.get(id)
+
+    if not area:
+        return jsonify({
+            'error': 'Área no encontrada'
+        }), 500
+
+    return jsonify(area.to_dict()), 200
+
 @catalogos_bp.route('/areas', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
@@ -115,6 +129,20 @@ def get_tipos_activo():
     tipos = CatTipoActivo.query.all()
     return jsonify([t.to_dict() for t in tipos]), 200
 
+@catalogos_bp.route('/activo/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos', 'puede_leer')
+def get_activo(id):
+    """Obtener un activo mediante su ID"""
+    activo = CatTipoActivo.query.get(id)
+
+    if not activo:
+        return jsonify({
+            'error': 'Tipo de activo no encontrado'
+        }), 404
+
+    return jsonify(activo.to_dict()), 200
+
 @catalogos_bp.route('/tipos-activo', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
@@ -210,6 +238,20 @@ def get_estados():
     estados = CatEstado.query.all()
     return jsonify([e.to_dict() for e in estados]), 200
 
+@catalogos_bp.route('/estados/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos','puede_leer')
+def get_estado(id):
+    """Obtener un estado mediante su ID"""
+    estado = CatEstado.query.get(id)
+
+    if not estado:
+        return jsonify({
+            'error': 'Estado no encontrado'
+        }), 404
+
+    return jsonify(estado.to_dict()), 200
+
 @catalogos_bp.route('/estados', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
@@ -231,6 +273,7 @@ def create_estado():
         estado = CatEstado(
             nombre_estado=data['nombre_estado'],
             descripcion=data.get('descripcion'),
+            activo=data.get('activo'),
             color_hex=data.get('color_hex')
         )
 
@@ -265,6 +308,7 @@ def update_estado(id):
         if 'nombre_estado' in data: estado.nombre_estado = data['nombre_estado']
         if 'descripcion' in data: estado.descripcion = data['descripcion']
         if 'color_hex' in data: estado.color_hex = data['color_hex']
+        if 'activo' in data: estado.activo = data['activo']
 
         db.session.commit()
         return jsonify({
@@ -310,6 +354,20 @@ def get_tipos_mobiliario():
     """Listar tipos de mobiliario"""
     tipos = CatTipoMobiliario.query.all()
     return jsonify([t.to_dict() for t in tipos]), 200
+
+@catalogos_bp.route('/mobiliario/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos', 'puede_leer')
+def get_catalogo(id):
+    """Obtener un mobiliario mediante su ID"""
+    catalogo = CatTipoMobiliario.query.get(id)
+
+    if not catalogo:
+        return jsonify({
+            'error': 'Catálogo no encontrado'
+        }), 404
+
+    return jsonify(catalogo.to_dict()), 200
 
 @catalogos_bp.route('/tipos-mobiliario', methods=['POST'])
 @jwt_required()
