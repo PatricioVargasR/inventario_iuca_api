@@ -170,13 +170,13 @@ def get_mobiliario_completo(id):
 # VISTA DE USUARIOS CON CONTEO DE BIENES
 # ============================================
 
-@vistas_bp.route('/usuarios-completo/', methods=['GET'])
+@vistas_bp.route('/responsables-completo/', methods=['GET'])
 @jwt_required()
 @require_permission('responsable', 'puede_leer')
-def get_vista_usuarios_completa():
+def get_vista_responsables_completa():
     """Obtener vista de usuarios responsables con conteo de bienes asignados"""
     search = request.args.get('search', '')
-    area = request.args.get('area')
+    area = request.args.get('area_id')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
@@ -191,7 +191,6 @@ def get_vista_usuarios_completa():
         query = query.filter(
             or_(
                 VistaUsuariosCompleta.nombre_usuario.ilike(f'%{search}%'),
-                VistaUsuariosCompleta.numero_nomina.ilike(f'%{search}%'),
                 VistaUsuariosCompleta.puesto.ilike(f'%{search}%')
             )
         )
@@ -203,13 +202,13 @@ def get_vista_usuarios_completa():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
-        'usuarios': [u.to_dict() for u in pagination.items],
+        'responsables': [u.to_dict() for u in pagination.items],
         'total': pagination.total,
         'pages': pagination.pages,
         'current_page': page
     }), 200
 
-@vistas_bp.route('/usuario-completo/<int:id>', methods=['GET'])
+@vistas_bp.route('/responsable-completo/<int:id>', methods=['GET'])
 @jwt_required()
 @require_permission('responsable', 'puede_leer')
 def get_usuario_complet(id):
