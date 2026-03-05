@@ -22,7 +22,7 @@ def get_responsables():
 
 
 @usuarios_bp.route('/responsable/<int:id>', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_responsable(id):
     """Obtener usuario responsable por ID"""
     usuario = Usuario.query.get(id)
@@ -77,6 +77,8 @@ def update_responsable(id):
 
     data = request.get_json()
 
+    print(data)
+
     if data.get('numero_nomina') and data['numero_nomina'] != usuario.numero_nomina:
         if Usuario.query.filter_by(numero_nomina=data['numero_nomina']).first():
             return jsonify({
@@ -84,15 +86,15 @@ def update_responsable(id):
             }), 400
 
     try:
-        for campo in ['numero_nomina','nombre_usuario', 'puesto', 'area_id']:
+        for campo in ['nombre_usuario','numero_nomina', 'puesto', 'area_id']:
             if campo in data:
                 setattr(usuario, campo, data[campo])
-            db.session.commit()
+        db.session.commit()
 
-            return jsonify({
-                'mensaje': 'usuario actualizado',
-                'usuario': usuario.to_dict()
-            }), 200
+        return jsonify({
+            'mensaje': 'usuario actualizado',
+            'usuario': usuario.to_dict()
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({
