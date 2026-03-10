@@ -207,7 +207,6 @@ def create_acceso():
                 puede_actualizar = p_modulo.get('puede_actualizar', False),
                 puede_eliminar = p_modulo.get('puede_eliminar', False),
             )
-            print(permiso.puede_leer, permiso.puede_crear, permiso.puede_actualizar, permiso.puede_eliminar)
             db.session.add(permiso)
 
         db.session.commit()
