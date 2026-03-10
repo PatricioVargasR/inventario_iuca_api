@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
-from sqlalchemy import or_, and_, func
+from sqlalchemy import String, or_, func, cast
 from utils.extesions import db
 from utils.decorators import require_permission
 from models import (
@@ -59,7 +59,7 @@ def get_vista_equipos_completa():
                 VistaEquiposCompleta.modelo.ilike(f'%{search}%'),
                 VistaEquiposCompleta.numero_serie.ilike(f'%{search}%'),
                 VistaEquiposCompleta.responsable.ilike(f'%{search}%'),
-                # VistaEquiposCompleta.id_activo.ilike(f'%{search}%')
+                cast(VistaEquiposCompleta.id_activo, String).ilike(f'%{search}%')
             )
         )
 
@@ -134,7 +134,8 @@ def get_vista_mobiliario_completa():
                 VistaMobiliarioCompleta.color.ilike(f'%{search}%'),
                 VistaMobiliarioCompleta.responsable.ilike(f'%{search}%'),
                 VistaMobiliarioCompleta.tipo_mobiliario.ilike(f'%{search}%'),
-                # VistaMobiliarioCompleta.id_mueble.ilike(f'%{search}%')
+                cast(VistaMobiliarioCompleta.id_mueble, String).ilike(f'%{search}%')
+
             )
         )
 
@@ -191,7 +192,8 @@ def get_vista_responsables_completa():
         query = query.filter(
             or_(
                 VistaUsuariosCompleta.nombre_usuario.ilike(f'%{search}%'),
-                VistaUsuariosCompleta.puesto.ilike(f'%{search}%')
+                VistaUsuariosCompleta.puesto.ilike(f'%{search}%'),
+                cast(VistaUsuariosCompleta.id_usuario, String).ilike(f'%{search}%')
             )
         )
 
@@ -234,8 +236,7 @@ def get_vista_accesos_completa():
     """Obtener vista de accesos al sistema con resumen de permisos"""
     search = request.args.get('search', '')
     area = request.args.get('area_id')
-    # modulo = request.args.get('modulo_id')
-    # tipo = request.args.get('tipo_id')
+    tipos_permiso = request.args.get('tipos_permiso')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
@@ -247,12 +248,16 @@ def get_vista_accesos_completa():
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
 
+    if tipos_permiso:
+        query = query.filter(VistaAccesosCompleta.permisos.in_(tipos_permiso))
+
     if search:
         query = query.filter(
             or_(
                 VistaAccesosCompleta.nombre_usuario.ilike(f'%{search}%'),
                 VistaAccesosCompleta.correo_electronico.ilike(f'%{search}%'),
-                VistaAccesosCompleta.area.ilike(f'%{search}%')
+                VistaAccesosCompleta.area.ilike(f'%{search}%'),
+                cast(VistaAccesosCompleta.id_acceso, String).ilike(f'%{search}%')
             )
         )
 
@@ -329,7 +334,7 @@ def get_vista_permisos_detalle():
 # VISTA DE HISTORIAL DE MOVIMIENTOS
 # ============================================
 
-@vistas_bp.route('/historial-completa', methods=['GET'])
+@vistas_bp.route('/historiales-completo/', methods=['GET'])
 @jwt_required()
 @require_permission('historial', 'puede_leer')
 def get_vista_historial_completa():
@@ -377,7 +382,6 @@ def get_vista_historial_completa():
         'pages': pagination.pages,
         'current_page': page
     }), 200
-
 
 # ============================================
 # ENDPOINT PARA ESTADÍSTICAS GENERALES
