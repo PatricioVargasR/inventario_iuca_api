@@ -169,18 +169,44 @@ def update_equipo(id):
         
         # Actualizar especificaciones si se enviaron
         if 'especificaciones' in data:
-            # Eliminar especificaciones anteriores
-            EspecificacionEquipo.query.filter_by(equipo_id=id).delete()
+            # Obtener especificaciones existentes indexadas por (nombre, valor)
+            specs_existentes = EspecificacionEquipo.query.filter_by(equipo_id=id).all()
             
-            # Agregar nuevas
-            for orden, spec in enumerate(data['especificaciones'], start=1):
-                especificacion = EspecificacionEquipo(
-                    equipo_id=id,
-                    nombre_especificacion=spec['nombre_especificacion'],
-                    valor_especificacion=spec['valor_especificacion'],
-                    orden=orden
-                )
-                db.session.add(especificacion)
+            # Crear un conjunto de las especificaciones nuevas para comparar
+            specs_nuevas = {
+                (spec['nombre_especificacion'], spec['valor_especificacion']): spec
+                for spec in data['especificaciones']
+            }
+            
+            # Crear conjunto de especificaciones existentes
+            specs_actuales = {
+                (spec.nombre_especificacion, spec.valor_especificacion): spec
+                for spec in specs_existentes
+            }
+            
+            # Eliminar especificaciones que ya no están
+            for key, spec in specs_actuales.items():
+                if key not in specs_nuevas:
+                    db.session.delete(spec)
+            
+            # Actualizar orden de existentes y crear nuevas
+            for orden, spec_data in enumerate(data['especificaciones'], start=1):
+                key = (spec_data['nombre_especificacion'], spec_data['valor_especificacion'])
+                
+                if key in specs_actuales:
+                    # Solo actualizar el orden si cambió
+                    spec_existente = specs_actuales[key]
+                    if spec_existente.orden != orden:
+                        spec_existente.orden = orden
+                else:
+                    # Crear nueva especificación
+                    nueva_spec = EspecificacionEquipo(
+                        equipo_id=id,
+                        nombre_especificacion=spec_data['nombre_especificacion'],
+                        valor_especificacion=spec_data['valor_especificacion'],
+                        orden=orden
+                    )
+                    db.session.add(nueva_spec)
         
         db.session.commit()
         
