@@ -47,7 +47,11 @@ def create_area():
         }), 400
 
     try:
-        area = CatArea(nombre_area=data['hombre_area'], descripcion=data.get('descripcion'))
+        area = CatArea(
+            nombre_area=data['hombre_area'],
+            descripcion=data.get('descripcion'),
+            activo=data.get('activo')
+        )
         db.session.add(area)
         db.session.commit()
 
@@ -81,6 +85,9 @@ def update_area(id):
 
         if 'descripcion' in data:
             area.descripcion = data['descripcion']
+
+        if 'activo' in data:
+            area.activo = data['activo']
 
         db.session.commit()
         return jsonify({
@@ -161,7 +168,11 @@ def create_tipo_activo():
         }), 400
 
     try:
-        tipo = CatTipoActivo(nombre_tipo=data['nombre_tipo'], descripcion=data.get('descripcion'))
+        tipo = CatTipoActivo(
+            nombre_tipo=data['nombre_tipo'],
+            descripcion=data.get('descripcion'),
+            activo=data.get('activo')
+        )
         db.session.add(tipo)
         db.session.commit()
 
@@ -192,6 +203,7 @@ def update_tipo_activo(id):
     try:
         if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
         if 'descripcion' in data: tipo.descripcion = data['descripcion']
+        if 'activo' in data: tipo.activo = data['activo']
 
         db.session.commit()
         return jsonify({
@@ -387,7 +399,11 @@ def create_tipo_mobiliario():
         }), 400
 
     try:
-        tipo = CatTipoMobiliario(nombre_activo=data['nombre_tipo'], descripcion=data.get('descripcion'))
+        tipo = CatTipoMobiliario(
+            nombre_activo=data['nombre_tipo'],
+            descripcion=data.get('descripcion'),
+            activo=data.get('activo')
+        )
         db.session.add(tipo)
         db.session.commit()
 
@@ -417,6 +433,8 @@ def update_tipo_mobiliario(id):
     try:
         if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
         if 'descripcion' in data: tipo.descripcion = data['descripcion']
+        if 'activo' in data: tipo.activo = data['activo']
+
         db.session.commit()
 
         return jsonify({
