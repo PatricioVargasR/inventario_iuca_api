@@ -167,7 +167,7 @@ class Permiso(db.Model):
             'puede_crear': self.puede_crear,
             'puede_leer': self.puede_leer,
             'puede_actualizar': self.puede_actualizar,
-            'puede_eliminar': self.puede_eliminar,
+            'puede_eliminar': self.puede_eliminar
         }
 
 # ============================================
@@ -289,43 +289,6 @@ class Mobiliario(db.Model):
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
 
-
-class HistorialMovimiento(db.Model):
-    __tablename__ = 'historial_movimientos'
-
-    id_movimiento = db.Column(db.Integer, primary_key=True)
-    tipo_registro = db.Column(db.String(20), nullable=False)
-    id_registro = db.Column(db.Integer, nullable=False)
-    tipo_movimiento = db.Column(db.String(50), nullable=False)
-    usuario_anterior_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'))
-    usuario_nuevo_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'))
-    estado_anterior_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    estado_nuevo_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    campo_modificado = db.Column(db.String(100))
-    valor_anterior = db.Column(db.Text)
-    valor_nuevo = db.Column(db.Text)
-    realizado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    fecha_movimiento = db.Column(db.DateTime, default=datetime.utcnow)
-    observaciones = db.Column(db.Text)
-
-    def to_dict(self):
-        return {
-            'id_movimiento': self.id_movimiento,
-            'tipo_registro': self.tipo_registro,
-            'id_registro': self.id_registro,
-            'tipo_movimiento': self.tipo_movimiento,
-            'usuario_anterior_id': self.usuario_anterior_id,
-            'usuario_nuevo_id': self.usuario_nuevo_id,
-            'estado_anterior_id': self.estado_anterior_id,
-            'estado_nuevo_id': self.estado_nuevo_id,
-            'campo_modificado': self.campo_modificado,
-            'valor_anterior': self.valor_anterior,
-            'valor_nuevo': self.valor_nuevo,
-            'realizado_por': self.realizado_por,
-            'fecha_movimiento': self.fecha_movimiento.isoformat() if self.fecha_movimiento else None,
-            'observaciones': self.observaciones
-        }
-
 # ============================================
 # VISTAS
 # ============================================
@@ -391,7 +354,7 @@ class VistaMobiliarioCompleta(db.Model):
     """
     __tablename__ = 'vista_mobiliario_completa'
     __table_args__ = {'info': {'is_view': True}}
-    
+
     id_mueble = db.Column(db.Integer, primary_key=True)
     tipo_mobiliario = db.Column(db.String(30))
     marca = db.Column(db.String(50))
@@ -411,7 +374,7 @@ class VistaMobiliarioCompleta(db.Model):
     fecha_creacion = db.Column(db.DateTime)
     modificado_por = db.Column(db.String(100))
     fecha_modificacion = db.Column(db.DateTime)
-    
+
     def to_dict(self):
         return {
             'id_mueble': self.id_mueble,
@@ -443,7 +406,7 @@ class VistaUsuariosCompleta(db.Model):
     """
     __tablename__ = 'vista_usuarios_completa'
     __table_args__ = {'info': {'is_view': True}}
-    
+
     id_usuario = db.Column(db.Integer, primary_key=True)
     numero_nomina = db.Column(db.String(10))
     nombre_usuario = db.Column(db.String(100))
@@ -452,7 +415,7 @@ class VistaUsuariosCompleta(db.Model):
     fecha_creacion = db.Column(db.DateTime)
     equipos_asignados = db.Column(db.BigInteger)
     mobiliario_asignado = db.Column(db.BigInteger)
-    
+
     def to_dict(self):
         return {
             'id_usuario': self.id_usuario,
@@ -497,79 +460,125 @@ class VistaAccesosCompleta(db.Model):
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
             'permisos': self.permisos
         }
-
-
-class VistaPermisosDetalle(db.Model):
-    """
-    Vista detallada de permisos por usuario y módulo
-    Corresponde a: vista_permisos_detalle
-    """
-    __tablename__ = 'vista_permisos_detalle'
-    __table_args__ = {'info': {'is_view': True}}
-    
-    # Composite primary key
-    id_acceso = db.Column(db.Integer, primary_key=True)
-    modulo = db.Column(db.String(50), primary_key=True)
-    
-    nombre_usuario = db.Column(db.String(100))
-    correo_electronico = db.Column(db.String(100))
-    area = db.Column(db.String(50))
-    puede_leer = db.Column(db.Boolean)
-    puede_crear = db.Column(db.Boolean)
-    puede_actualizar = db.Column(db.Boolean)
-    puede_eliminar = db.Column(db.Boolean)
-    
-    def to_dict(self):
-        return {
-            'id_acceso': self.id_acceso,
-            'nombre_usuario': self.nombre_usuario,
-            'correo_electronico': self.correo_electronico,
-            'area': self.area,
-            'modulo': self.modulo,
-            'puede_leer': self.puede_leer,
-            'puede_crear': self.puede_crear,
-            'puede_actualizar': self.puede_actualizar,
-            'puede_eliminar': self.puede_eliminar,
-        }
-
-
 class VistaHistorialCompleta(db.Model):
     """
-    Vista completa del historial de movimientos
-    Corresponde a: vista_historial_completa
+    Vista completa del historial con el nombre del usuario
     """
     __tablename__ = 'vista_historial_completa'
     __table_args__ = {'info': {'is_view': True}}
-    
-    id_movimiento = db.Column(db.Integer, primary_key=True)
-    tipo_registro = db.Column(db.String(20))
-    id_registro = db.Column(db.Integer)
-    tipo_movimiento = db.Column(db.String(50))
-    usuario_anterior = db.Column(db.String(100))
-    usuario_nuevo = db.Column(db.String(100))
-    estado_anterior = db.Column(db.String(20))
-    estado_nuevo = db.Column(db.String(20))
-    campo_modificado = db.Column(db.String(100))
-    valor_anterior = db.Column(db.Text)
-    valor_nuevo = db.Column(db.Text)
+
+    id_historial = db.Column(db.Integer, primary_key=True)
+    tabla = db.Column(db.Text)
+    operacion = db.Column(db.Text)
+    registro_id = db.Column(db.Text)
+    cambios = db.Column(db.JSON)
+    fecha = db.Column(db.DateTime)
+    usuario_id = db.Column(db.Integer)
     realizado_por = db.Column(db.String(100))
-    fecha_movimiento = db.Column(db.DateTime)
-    observaciones = db.Column(db.Text)
-    
+
     def to_dict(self):
         return {
-            'id_movimiento': self.id_movimiento,
-            'tipo_registro': self.tipo_registro,
-            'id_registro': self.id_registro,
-            'tipo_movimiento': self.tipo_movimiento,
-            'usuario_anterior': self.usuario_anterior,
-            'usuario_nuevo': self.usuario_nuevo,
-            'estado_anterior': self.estado_anterior,
-            'estado_nuevo': self.estado_nuevo,
-            'campo_modificado': self.campo_modificado,
-            'valor_anterior': self.valor_anterior,
-            'valor_nuevo': self.valor_nuevo,
-            'realizado_por': self.realizado_por,
-            'fecha_movimiento': self.fecha_movimiento.isoformat() if self.fecha_movimiento else None,
-            'observaciones': self.observaciones
+            'id_historial': self.id_historial,
+            'tabla': self.tabla,
+            'operacion': self.operacion,
+            'registro_id': self.registro_id,
+            'cambios': self.cambios,
+            'fecha': self.fecha.isoformat() if self.fecha else None,
+            'usuario_id': self.usuario_id,
+            'realizado_por': self.realizado_por
         }
+
+    def to_dict_detallado(self):
+        """Versión con cambios formateados de manera legible"""
+        resultado = self.to_dict()
+
+        if self.cambios:
+            resultado['cambios_detallados'] = self._formatear_cambios()
+
+        return resultado
+
+    def _formatear_cambios(self):
+        """Convierte los cambios JSON en un formato legible"""
+        if not self.cambios:
+            return []
+
+        cambios_formateados = []
+
+        for campo, valores in self.cambios.items():
+            detalle = {
+                'campo': campo,
+                'campo_legible': self._nombre_campo_legible(campo)
+            }
+
+            if isinstance(valores, dict):
+                if 'old' in valores:
+                    detalle['valor_anterior'] = self._obtener_valor_legible(campo, valores['old'])
+                if 'new' in valores:
+                    detalle['valor_nuevo'] = self._obtener_valor_legible(campo, valores['new'])
+
+            cambios_formateados.append(detalle)
+        return cambios_formateados
+
+    def _nombre_campo_legible(self, campo):
+        """Convierte nombres de campos técnicos a nombres legibles"""
+        nombres = {
+            'estado_id': 'Estado',
+            'usuario_asignado_id': 'Usuario Asignado',
+            'tipo_activo_id': 'Tipo de Activo',
+            'tipo_mobiliario_id': 'Tipo de Mobiliario',
+            'area_id': 'Área',
+            'nombre_activo': 'Nombre',
+            'marca': 'Marca',
+            'modelo': 'Modelo',
+            'numero_serie': 'Número de Serie',
+            'observaciones': 'Observaciones',
+            'caracteristicas': 'Características',
+            'color': 'Color',
+            'nombre_usuario': 'Nombre',
+            'correo_electronico': 'Correo Electrónico',
+            'puesto': 'Puesto',
+            'numero_nomina': 'Número de Nómina'
+        }
+        return nombres.get(campo, campo.replace('_', ' ').title())
+
+    def _obtener_valor_legible(self, campo, valor):
+        """Convierte IDs en nombres legibles consultando catálogos"""
+        if valor is None:
+            return None
+
+        try:
+            # Estado
+            if campo == 'estado_id':
+                estado = CatEstado.query.get(int(valor))
+                return estado.nombre_estado if estado else valor
+
+            # Usuario asignado
+            elif campo == 'usuario_asignado_id':
+                usuario = Usuario.query.get(int(valor))
+                return usuario.nombre_usuario if usuario else valor
+
+            # Tipo de activo
+            elif campo == 'tipo_activo_id':
+                tipo = CatTipoActivo.query.get(int(valor))
+                return tipo.nombre_tipo if tipo else valor
+
+            # Tipo de mobiliario
+            elif campo == 'tipo_mobiliario_id':
+                tipo = CatTipoMobiliario.query.get(int(valor))
+                return tipo.nombre_tipo if tipo else valor
+
+            # Área
+            elif campo == 'area_id':
+                area = CatArea.query.get(int(valor))
+                return area.nombre_area if area else valor
+
+            # Usuario que modificó/creó
+            elif campo in ('creado_por', 'modificado_por'):
+                acceso = Acceso.query.get(int(valor))
+                return acceso.nombre_usuario if acceso else valor
+
+            else:
+                return valor
+
+        except (ValueError, TypeError):
+            return valor

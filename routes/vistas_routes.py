@@ -8,11 +8,8 @@ from models import (
     VistaMobiliarioCompleta,
     VistaUsuariosCompleta,
     VistaAccesosCompleta,
-    VistaPermisosDetalle,
     VistaHistorialCompleta
 )
-
-# TODO: Fix ID's search
 
 vistas_bp = Blueprint('vistas', __name__)
 
@@ -288,48 +285,6 @@ def get_acceso_completo(id):
 
     return jsonify(acceso.to_dict()), 200
 
-
-# ============================================
-# VISTA DETALLADA DE PERMISOS
-# ============================================
-
-@vistas_bp.route('/permisos-detalle', methods=['GET'])
-@jwt_required()
-@require_permission('acceso', 'puede_leer')
-def get_vista_permisos_detalle():
-    """Obtener vista detallada de permisos por usuario y módulo"""
-    usuario = request.args.get('usuario')
-    modulo = request.args.get('modulo')
-    area = request.args.get('area')
-
-    # Query base usando el modelo
-    query = VistaPermisosDetalle.query
-
-    # Aplicar filtros
-    if usuario:
-        query = query.filter(VistaPermisosDetalle.nombre_usuario.ilike(f'%{usuario}%'))
-
-    if modulo:
-        query = query.filter(VistaPermisosDetalle.modulo == modulo)
-
-    if area:
-        query = query.filter(VistaPermisosDetalle.area == area)
-
-    # Ordenar por usuario y módulo
-    query = query.order_by(
-        VistaPermisosDetalle.nombre_usuario.asc(),
-        VistaPermisosDetalle.modulo.asc()
-    )
-
-    # Ejecutar query
-    permisos = query.all()
-
-    return jsonify({
-        'permisos': [p.to_dict() for p in permisos],
-        'total': len(permisos)
-    }), 200
-
-
 # ============================================
 # VISTA DE HISTORIAL DE MOVIMIENTOS
 # ============================================
@@ -381,84 +336,4 @@ def get_vista_historial_completa():
         'total': pagination.total,
         'pages': pagination.pages,
         'current_page': page
-    }), 200
-
-# ============================================
-# ENDPOINT PARA ESTADÍSTICAS GENERALES
-# ============================================
-
-@vistas_bp.route('/estadisticas', methods=['GET'])
-@jwt_required()
-def get_estadisticas():
-    """Obtener estadísticas generales del sistema"""
-
-    # Estadísticas de equipos usando el modelo
-    total_equipos = VistaEquiposCompleta.query.count()
-    funcionales = VistaEquiposCompleta.query.filter(
-        VistaEquiposCompleta.estado == 'Funcional'
-    ).count()
-    en_reparacion = VistaEquiposCompleta.query.filter(
-        VistaEquiposCompleta.estado == 'En reparación'
-    ).count()
-    danados = VistaEquiposCompleta.query.filter(
-        VistaEquiposCompleta.estado == 'Dañado'
-    ).count()
-    equipos_asignados = VistaEquiposCompleta.query.filter(
-        VistaEquiposCompleta.responsable.isnot(None)
-    ).count()
-
-    # Estadísticas de mobiliario usando el modelo
-    total_mobiliario = VistaMobiliarioCompleta.query.count()
-    buenos = VistaMobiliarioCompleta.query.filter(
-        VistaMobiliarioCompleta.estado == 'Bueno'
-    ).count()
-    regulares = VistaMobiliarioCompleta.query.filter(
-        VistaMobiliarioCompleta.estado == 'Regular'
-    ).count()
-    malos = VistaMobiliarioCompleta.query.filter(
-        VistaMobiliarioCompleta.estado == 'Malo'
-    ).count()
-    mobiliario_asignado = VistaMobiliarioCompleta.query.filter(
-        VistaMobiliarioCompleta.responsable.isnot(None)
-    ).count()
-
-    # Estadísticas de usuarios usando agregación
-    total_responsables = VistaUsuariosCompleta.query.count()
-
-    # Suma total de equipos asignados
-    sum_equipos = db.session.query(
-        func.sum(VistaUsuariosCompleta.equipos_asignados)
-    ).scalar() or 0
-
-    # Suma total de mobiliario asignado
-    sum_mobiliario = db.session.query(
-        func.sum(VistaUsuariosCompleta.mobiliario_asignado)
-    ).scalar() or 0
-
-    # Estadísticas de accesos
-    total_accesos = VistaAccesosCompleta.query.count()
-
-    return jsonify({
-        'equipos': {
-            'total': total_equipos,
-            'funcionales': funcionales,
-            'en_reparacion': en_reparacion,
-            'danados': danados,
-            'asignados': equipos_asignados
-        },
-        'mobiliario': {
-            'total': total_mobiliario,
-            'buenos': buenos,
-            'regulares': regulares,
-            'malos': malos,
-            'asignados': mobiliario_asignado
-        },
-        'usuarios': {
-            'total_responsables': total_responsables,
-            'total_equipos_asignados': int(sum_equipos),
-            'total_mobiliario_asignado': int(sum_mobiliario)
-        },
-        'accesos': {
-            'total_accesos': total_accesos
-        }
     }), 200
