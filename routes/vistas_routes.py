@@ -8,7 +8,6 @@ from models import (
     VistaMobiliarioCompleta,
     VistaUsuariosCompleta,
     VistaAccesosCompleta,
-    VistaHistorialCompleta
 )
 
 vistas_bp = Blueprint('vistas', __name__)
@@ -233,7 +232,8 @@ def get_vista_accesos_completa():
     """Obtener vista de accesos al sistema con resumen de permisos"""
     search = request.args.get('search', '')
     area = request.args.get('area_id')
-    tipos_permiso = request.args.get('tipos_permiso')
+    modulo = request.args.get('modulo')  # Módulo seleccionado
+    permisos = request.args.getlist('permisos[]')  # Lista de permisos a filtrar
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
@@ -245,8 +245,24 @@ def get_vista_accesos_completa():
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
 
-    if tipos_permiso:
-        query = query.filter(VistaAccesosCompleta.permisos.in_(tipos_permiso))
+    # Filtro por módulo y permisos específicos
+    if modulo and permisos:
+        # Filtrar accesos que tengan al menos uno de los permisos seleccionados en el módulo
+        for permiso in permisos:
+            # Construir la condición JSON para verificar el permiso
+            json_path = f"$.{modulo}.{permiso}"
+            query = query.filter(
+                func.jsonb_path_exists(
+                    VistaAccesosCompleta.permisos,
+                    json_path
+                )
+            ).filter(
+                func.jsonb_extract_path_text(
+                    VistaAccesosCompleta.permisos,
+                    modulo,
+                    permiso
+                ).cast(db.Boolean) == True
+            )
 
     if search:
         query = query.filter(
@@ -285,55 +301,3 @@ def get_acceso_completo(id):
 
     return jsonify(acceso.to_dict()), 200
 
-# ============================================
-# VISTA DE HISTORIAL DE MOVIMIENTOS
-# ============================================
-
-@vistas_bp.route('/historiales-completo/', methods=['GET'])
-@jwt_required()
-@require_permission('historial', 'puede_leer')
-def get_vista_historial_completa():
-    """Obtener vista completa del historial de movimientos"""
-    tipo_registro = request.args.get('tipo_registro')  # 'computo' o 'mobiliario'
-    id_registro = request.args.get('id_registro', type=int)
-    tipo_movimiento = request.args.get('tipo_movimiento')
-    realizado_por = request.args.get('realizado_por')
-    fecha_desde = request.args.get('fecha_desde')
-    fecha_hasta = request.args.get('fecha_hasta')
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-
-    # Query base usando el modelo
-    query = VistaHistorialCompleta.query
-
-    # Aplicar filtros
-    if tipo_registro:
-        query = query.filter(VistaHistorialCompleta.tipo_registro == tipo_registro)
-
-    if id_registro:
-        query = query.filter(VistaHistorialCompleta.id_registro == id_registro)
-
-    if tipo_movimiento:
-        query = query.filter(VistaHistorialCompleta.tipo_movimiento == tipo_movimiento)
-
-    if realizado_por:
-        query = query.filter(VistaHistorialCompleta.realizado_por.ilike(f'%{realizado_por}%'))
-
-    if fecha_desde:
-        query = query.filter(VistaHistorialCompleta.fecha_movimiento >= fecha_desde)
-
-    if fecha_hasta:
-        query = query.filter(VistaHistorialCompleta.fecha_movimiento <= fecha_hasta)
-
-    # Ordenar por fecha descendente (más recientes primero)
-    query = query.order_by(VistaHistorialCompleta.fecha_movimiento.desc())
-
-    # Paginación
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        'movimientos': [m.to_dict() for m in pagination.items],
-        'total': pagination.total,
-        'pages': pagination.pages,
-        'current_page': page
-    }), 200
