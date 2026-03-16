@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
+import json
 from flask_jwt_extended import jwt_required
-from sqlalchemy import String, or_, func, cast
+from sqlalchemy import String, and_, or_, func, cast, text
 from utils.extesions import db
 from utils.decorators import require_permission
 from models import (
@@ -232,38 +233,63 @@ def get_vista_accesos_completa():
     """Obtener vista de accesos al sistema con resumen de permisos"""
     search = request.args.get('search', '')
     area = request.args.get('area_id')
-    modulo = request.args.get('modulo')  # Módulo seleccionado
-    permisos = request.args.getlist('permisos[]')  # Lista de permisos a filtrar
+    permisos_param = request.args.get('permisos')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
-
-    # Query base usando el modelo
+    # Query base
     query = VistaAccesosCompleta.query
 
-    # Aplicar filtros
+    # Filtro por área
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
 
-    # Filtro por módulo y permisos específicos
-    if modulo and permisos:
-        # Filtrar accesos que tengan al menos uno de los permisos seleccionados en el módulo
-        for permiso in permisos:
-            # Construir la condición JSON para verificar el permiso
-            json_path = f"$.{modulo}.{permiso}"
-            query = query.filter(
-                func.jsonb_path_exists(
-                    VistaAccesosCompleta.permisos,
-                    json_path
-                )
-            ).filter(
-                func.jsonb_extract_path_text(
-                    VistaAccesosCompleta.permisos,
-                    modulo,
-                    permiso
-                ).cast(db.Boolean) == True
-            )
+    # Filtro por permisos
+    if permisos_param:
+        try:
+            permisos_filtro = json.loads(permisos_param)
 
+            # Mapeo de nombres del frontend (puede_leer) al backend (leer)
+            mapeo_permisos = {
+                'puede_leer': 'leer',
+                'puede_crear': 'crear',
+                'puede_actualizar': 'actualizar',
+                'puede_eliminar': 'eliminar'
+            }
+
+            # Construir condiciones para cada módulo
+            condiciones_modulos = []
+
+            for modulo, permisos_requeridos in permisos_filtro.items():
+                condiciones_permisos = []
+
+                for permiso_frontend in permisos_requeridos:
+                    # Convertir "puede_leer" -> "leer"
+                    permiso_db = mapeo_permisos.get(permiso_frontend, permiso_frontend)
+
+                    # Buscar en el array JSON
+                    condicion_sql = text("""
+                        EXISTS (
+                            SELECT 1
+                            FROM json_array_elements(permisos) AS p
+                            WHERE p->>'modulo' = :modulo
+                            AND (p->>'""" + permiso_db + """')::boolean = true
+                        )
+                    """).bindparams(modulo=modulo)
+
+                    condiciones_permisos.append(condicion_sql)
+
+                # OR entre permisos del mismo módulo (tiene al menos uno)
+                if condiciones_permisos:
+                    condiciones_modulos.append(and_(*condiciones_permisos))
+
+            # AND entre módulos (debe cumplir todos los módulos seleccionados)
+            if condiciones_modulos:
+                query = query.filter(and_(*condiciones_modulos))
+
+        except (json.JSONDecodeError, ValueError) as e:
+            pass
+    # Búsqueda de texto
     if search:
         query = query.filter(
             or_(
@@ -274,7 +300,7 @@ def get_vista_accesos_completa():
             )
         )
 
-    # Ordenar alfabéticamente por nombre
+    # Ordenar
     query = query.order_by(VistaAccesosCompleta.nombre_usuario.asc())
 
     # Paginación
