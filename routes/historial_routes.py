@@ -27,6 +27,7 @@ def get_historial():
         search = request.args.get('search', '').strip()
         tipo_registro = request.args.get('tipo_registro', '').strip()
         tipo_movimiento = request.args.get('tipo_movimiento', '').strip()
+        usuario_id = request.args.get('usuario_id')
         fecha_desde = request.args.get('fecha_desde', '').strip()
         fecha_hasta = request.args.get('fecha_hasta', '').strip()
 
@@ -43,6 +44,10 @@ def get_historial():
                     VistaHistorialCompleta.registro_id.ilike(f'%{search}%')
                 )
             )
+
+        # Filtro de búsqueda por usuario
+        if usuario_id:
+            query = query.filter(VistaHistorialCompleta.usuario_id == usuario_id)
 
         # Filtro por tipo de registro
         if tipo_registro:
