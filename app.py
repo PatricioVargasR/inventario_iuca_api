@@ -15,6 +15,7 @@ from utils.extesions import db, jwt
 from flask_cors import CORS
 from config import Config
 from utils.historial_tracker import set_current_user_for_triggers
+import os
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -25,7 +26,7 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:8080", "http://localhost:3000"],
+            "origins": os.getenv('ORIGINS').split(','),
             "methods": ["GET", "POST", "PUT", "DELETE"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
