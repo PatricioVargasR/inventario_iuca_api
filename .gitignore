@@ -75,5 +75,4 @@ pip-wheel-metadata/
 # =========================
 # Archivos de configuración sensibles
 # =========================
-config.py
 secrets.json
