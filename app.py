@@ -40,6 +40,7 @@ def create_app(config_class=Config):
     from routes.catalogos_routes import catalogos_bp
     from routes.historial_routes import historial_bp
     from routes.vistas_routes import vistas_bp
+    from routes.concurrency_routes import concurrency_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(equipos_bp, url_prefix='/api/equipos')
@@ -48,6 +49,7 @@ def create_app(config_class=Config):
     app.register_blueprint(catalogos_bp, url_prefix='/api/catalogos')
     app.register_blueprint(historial_bp, url_prefix=('/api/historial'))
     app.register_blueprint(vistas_bp, url_prefix=('/api/vistas'))
+    app.register_blueprint(concurrency_bp, url_prefix='/api/concurrency')
 
     # Manejador de errores
     from utils.error_handlers import register_error_handlers
