@@ -20,8 +20,8 @@ concurrency_bp = Blueprint('concurrency', __name__)
 @jwt_required()
 def adquirir_bloqueo():
     """
-    Adquiere un bloqueo de edición para un registro
-    Body: { tabla: str, registro_id: int, duracion_minutos: int (opcional) }
+    Adquiere un bloqueo de edición o eliminación para un registro
+    Body: { tabla: str, registro_id: int, duracion_minutos: int (opcional), tipo_bloqueo: str (opcional) }
     """
     user_id = int(get_jwt_identity())
     usuario = Acceso.query.get(user_id)
@@ -33,6 +33,7 @@ def adquirir_bloqueo():
     tabla = data.get('tabla')
     registro_id = data.get('registro_id')
     duracion = data.get('duracion_minutos', 10)
+    tipo_bloqueo = data.get('tipo_bloqueo', 'edicion')  # Obtener tipo_bloqueo
 
     if not tabla or not registro_id:
         return jsonify({'error': 'Tabla y registro_id son requeridos'}), 400
@@ -42,7 +43,8 @@ def adquirir_bloqueo():
         registro_id=registro_id,
         usuario_id=user_id,
         nombre_usuario=usuario.nombre_usuario,
-        duracion_minutos=duracion
+        duracion_minutos=duracion,
+        tipo_bloqueo=tipo_bloqueo  # Pasar tipo_bloqueo
     )
 
     if success:
@@ -90,6 +92,8 @@ def verificar_bloqueo():
 
     if not tabla or not registro_id:
         return jsonify({'error': 'Tabla y registro_id son requeridos'}), 400
+
+    limpiar_bloqueos_expirados()
 
     bloqueo = obtener_bloqueo(tabla, registro_id)
 

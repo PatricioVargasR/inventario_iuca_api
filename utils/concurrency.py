@@ -46,32 +46,46 @@ def obtener_bloqueo(tabla, registro_id):
     return bloqueo
 
 
-def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minutos=10):
+def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minutos=10, tipo_bloqueo='edicion'):
     """
-    Crea un bloqueo de edición para un registro
-    Retorna (success: bool, bloqueo_o_error: dict)
+    Intenta crear un bloqueo para un registro.
+    
+    Args:
+        tipo_bloqueo: 'edicion' o 'eliminacion'
+    
+    Returns:
+        tuple: (success: bool, data: dict)
     """
     limpiar_bloqueos_expirados()
-
+    
     # Verificar si ya existe un bloqueo
     bloqueo_existente = BloqueoActivo.query.filter_by(
         tabla=tabla,
         registro_id=registro_id
     ).first()
-
+    
     if bloqueo_existente:
-        # Si el bloqueo es del mismo usuario, extender el tiempo
-        if bloqueo_existente.usuario_id == usuario_id:
+        # Si el bloqueo es del mismo usuario del mismo tipo, extender tiempo
+        if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo == tipo_bloqueo:
             bloqueo_existente.expira_en = datetime.utcnow() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
-        else:
-            # Hay otro usuario editando
-            return False, {
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está editando este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }
+        
+        # Si es del mismo usuario pero diferente tipo (ej: tenía edición y ahora quiere eliminar)
+        if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo != tipo_bloqueo:
+            # Actualizar tipo y tiempo
+            bloqueo_existente.tipo_bloqueo = tipo_bloqueo
+            bloqueo_existente.expira_en = datetime.utcnow() + timedelta(minutes=duracion_minutos)
+            db.session.commit()
+            return True, bloqueo_existente.to_dict()
+        
+        # Si es de otro usuario, retornar error con info del tipo de bloqueo
+        accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+        return False, {
+            'error': 'locked_by_other',
+            'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+            'bloqueo': bloqueo_existente.to_dict()
+        }
 
     # Crear nuevo bloqueo
     try:
@@ -80,27 +94,31 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
             registro_id=registro_id,
             usuario_id=usuario_id,
             nombre_usuario=nombre_usuario,
-            expira_en=datetime.utcnow() + timedelta(minutes=duracion_minutos),
-            ip_usuario=get_client_ip()
+            tipo_bloqueo=tipo_bloqueo,
+            expira_en=datetime.utcnow() + timedelta(minutes=duracion_minutos)
         )
-
         db.session.add(nuevo_bloqueo)
         db.session.commit()
-
         return True, nuevo_bloqueo.to_dict()
 
     except IntegrityError:
+        # Race condition: otro usuario creó el bloqueo justo ahora
         db.session.rollback()
-        # Race condition: otro usuario bloqueó entre la verificación y la creación
-        bloqueo_existente = obtener_bloqueo(tabla, registro_id)
-        if bloqueo_existente:
-            return False, {
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está editando este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }
-        else:
-            return False, {'error': 'Error al crear bloqueo'}
+        bloqueo_existente = BloqueoActivo.query.filter_by(
+            tabla=tabla,
+            registro_id=registro_id
+        ).first()
+
+        if bloqueo_existente and bloqueo_existente.usuario_id == usuario_id:
+            return True, bloqueo_existente.to_dict()
+
+        accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+        return False, {
+            'error': 'locked_by_other',
+            'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+            'bloqueo': bloqueo_existente.to_dict()
+        }
+
 
 
 def liberar_bloqueo(tabla, registro_id, usuario_id):
@@ -147,15 +165,19 @@ def verificar_version(modelo, registro_id, version_esperada):
     Verifica que la versión del registro coincida con la esperada
     Retorna (es_valida: bool, version_actual: int)
     """
+    if modelo.__tablename__ == 'acceso':
+        version_field = 'version_acceso'
+    else:
+        version_field = 'version'
+
     registro = modelo.query.get(registro_id)
 
     if not registro:
         return False, None
 
-    version_actual = registro.version
-    es_valida = (version_actual == version_esperada)
+    version_actual = getattr(registro, version_field)
 
-    return es_valida, version_actual
+    return version_actual == version_esperada, version_actual
 
 
 def marcar_en_edicion(modelo, registro_id, usuario_id):

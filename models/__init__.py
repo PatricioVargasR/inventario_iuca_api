@@ -651,23 +651,22 @@ class VistaHistorialCompleta(db.Model):
             return valor
 
 class BloqueoActivo(db.Model):
-    """Tabla para tracking de ediciones en progreso"""
+    """Tabla para gestionar bloqueos de edición/eliminación en tiempo real."""
     __tablename__ = 'bloqueos_activos'
 
     id_bloqueo = db.Column(db.Integer, primary_key=True)
     tabla = db.Column(db.String(50), nullable=False)
     registro_id = db.Column(db.Integer, nullable=False)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso', ondelete='CASCADE'), nullable=False)
     nombre_usuario = db.Column(db.String(100), nullable=False)
+    tipo_bloqueo = db.Column(db.String(20), default='edicion', nullable=False)  # 'edicion' o 'eliminacion'
     fecha_bloqueo = db.Column(db.DateTime, default=datetime.utcnow)
-    expira_en = db.Column(db.DateTime)
+    expira_en = db.Column(db.DateTime, nullable=False)
     ip_usuario = db.Column(db.String(45))
 
-    # Relación
-    usuario = db.relationship('Acceso', backref='bloqueos')
-
     __table_args__ = (
-        db.UniqueConstraint('tabla', 'registro_id', name='uq_bloqueo_tabla_registro'),
+        db.UniqueConstraint('tabla', 'registro_id', name='uq_tabla_registro'),
+        db.CheckConstraint("tipo_bloqueo IN ('edicion', 'eliminacion')", name='check_tipo_bloqueo')
     )
 
     def to_dict(self):
@@ -677,6 +676,7 @@ class BloqueoActivo(db.Model):
             'registro_id': self.registro_id,
             'usuario_id': self.usuario_id,
             'nombre_usuario': self.nombre_usuario,
+            'tipo_bloqueo': self.tipo_bloqueo,
             'fecha_bloqueo': self.fecha_bloqueo.isoformat() if self.fecha_bloqueo else None,
             'expira_en': self.expira_en.isoformat() if self.expira_en else None,
             'ip_usuario': self.ip_usuario

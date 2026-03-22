@@ -1,12 +1,10 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from models import EquipoComputo, EspecificacionEquipo
+from models import BloqueoActivo, EquipoComputo, EspecificacionEquipo
 from utils.decorators import require_permission
 from utils.concurrency import (
     verificar_version,
-    marcar_en_edicion,
-    limpiar_marca_edicion,
     liberar_bloqueo
 )
 
@@ -138,6 +136,8 @@ def update_equipo(id):
             equipo.observaciones = data['observaciones']
         if 'usuario_asignado_id' in data:
             equipo.usuario_asignado_id = data['usuario_asignado_id']
+        if 'sucursal_nombre' in data:
+            equipo.sucursal_nombre = data['sucursal_nombre']
 
         equipo.modificado_por = user_id
 
@@ -192,21 +192,47 @@ def update_equipo(id):
 
 @equipos_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
-@require_permission('computo', 'puede_eliminar')
 def delete_equipo(id):
-    """Eliminar equipo de cómputo"""
+    """Eliminar equipo con verificación de bloqueo."""
     user_id = get_jwt_identity()
-    equipo = EquipoComputo.query.get(id)
 
+    equipo = EquipoComputo.query.get(id)
     if not equipo:
         return jsonify({'error': 'Equipo no encontrado'}), 404
 
+    # VERIFICAR QUE EXISTE BLOQUEO DE ELIMINACIÓN DEL USUARIO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='equipos_computo',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+        # No hay bloqueo o es de otro usuario/tipo
+        bloqueo_existente = BloqueoActivo.query.filter_by(
+            tabla='equipos_computo',
+            registro_id=id
+        ).first()
+
+        if bloqueo_existente:
+            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+            return jsonify({
+                'error': 'locked_by_other',
+                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                'bloqueo': bloqueo_existente.to_dict()
+            }), 409
+        else:
+            return jsonify({
+                'error': 'no_lock',
+                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+            }), 403
+
+    # Proceder con la eliminación
     try:
         db.session.delete(equipo)
+        db.session.delete(bloqueo)  # Eliminar bloqueo también
         db.session.commit()
-
-        # Liberar bloqueo si existe
-        liberar_bloqueo('equipos_computo', id, int(user_id))
 
         return jsonify({'mensaje': 'Equipo eliminado exitosamente'}), 200
 
