@@ -119,6 +119,11 @@ class Acceso(db.Model):
     fecha_registro = db.Column(db.Date, default=datetime.utcnow().date)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # NUEVOS CAMPOS PARA CONTROL DE SESIÓN
+    token_sesion_activa = db.Column(db.String(500))  # Token JWT de la sesión activa
+    fecha_inicio_sesion = db.Column(db.DateTime)     # Cuándo inició la sesión
+    ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
+
     # Relaciones
     area = db.relationship('CatArea', backref='accesos')
     permisos = db.relationship('Permiso', backref='acceso', cascade='all, delete-orphan')
