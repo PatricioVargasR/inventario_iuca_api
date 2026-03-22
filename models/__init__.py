@@ -93,20 +93,33 @@ class Usuario(db.Model):
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 
+    version = db.Column(db.Integer, default=1, nullable=False)
+    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
+    editado_desde = db.Column(db.DateTime)
+
     # Relaciones
     area = db.relationship('CatArea', backref='usuarios')
+    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='usuarios_editando')
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_version=True):
+        data = {
             'id_usuario': self.id_usuario,
             'numero_nomina': self.numero_nomina,
             'nombre_usuario': self.nombre_usuario,
             'puesto': self.puesto,
             'area_id': self.area_id,
-            'area': self.area.nombre_area if self.area else None
+            'area': self.area.nombre_area if self.area else None,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
 
+        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
+        if include_version:
+            data['version'] = self.version
+            data['editado_por'] = self.editado_por
+            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
+            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
 
+        return data
 class Acceso(db.Model):
     __tablename__ = 'acceso'
 
@@ -124,11 +137,24 @@ class Acceso(db.Model):
     fecha_inicio_sesion = db.Column(db.DateTime)     # Cuándo inició la sesión
     ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
 
+    # Nota: Se usa nombre diferente para evitar conflicto con otros modelos
+    version_acceso = db.Column(db.Integer, default=1, nullable=False)
+    editado_por_acceso = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
+    editado_desde_acceso = db.Column(db.DateTime)
+
     # Relaciones
     area = db.relationship('CatArea', backref='accesos')
     permisos = db.relationship('Permiso', backref='acceso', cascade='all, delete-orphan')
 
-    def to_dict(self, include_password=False):
+    # ✅ Relación auto-referencial para quien editó este acceso
+    editor_acceso = db.relationship(
+        'Acceso',
+        remote_side=[id_acceso],
+        foreign_keys=[editado_por_acceso],
+        backref='accesos_editando'
+    )
+
+    def to_dict(self, include_password=False, include_version=True):
         data = {
             'id_acceso': self.id_acceso,
             'nombre_usuario': self.nombre_usuario,
@@ -136,16 +162,25 @@ class Acceso(db.Model):
             'area_id': self.area_id,
             'area': self.area.nombre_area if self.area else None,
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
-            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None
+            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
+
         if include_password:
             data['contrasena_hash'] = self.contrasena_hash
+
+        # ✅ INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
+        if include_version:
+            data['version'] = self.version_acceso  # Nota: usa version_acceso, no version
+            data['editado_por'] = self.editado_por_acceso
+            data['editado_desde'] = self.editado_desde_acceso.isoformat() if self.editado_desde_acceso else None
+            data['nombre_editor'] = self.editor_acceso.nombre_usuario if self.editor_acceso else None
+
         return data
 
     def permisos_dict(self):
         """Devuelve los permisos del usuario indexados por módulo."""
         return {p.modulo: p.to_dict() for p in self.permisos}
-
 
 class Permiso(db.Model):
     __tablename__ = 'permisos'
@@ -198,13 +233,18 @@ class EquipoComputo(db.Model):
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
 
+    version = db.Column(db.Integer, default=1, nullable=False)
+    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
+    editado_desde = db.Column(db.DateTime)
+
     # Relaciones
     tipo_activo = db.relationship('CatTipoActivo')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
     especificaciones = db.relationship('EspecificacionEquipo', backref='equipo', cascade='all, delete-orphan')
+    editor = db.relationship('Acceso', foreign_keys=[editado_por])
 
-    def to_dict(self, include_specs=False):
+    def to_dict(self, include_specs=False, include_version=True):
         data = {
             'id_activo': self.id_activo,
             'tipo_activo_id': self.tipo_activo_id,
@@ -224,8 +264,16 @@ class EquipoComputo(db.Model):
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
+
+        if include_version:
+            data['version'] = self.version
+            data['editado_por'] = self.editado_por
+            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
+            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+
         if include_specs:
             data['especificaciones'] = [spec.to_dict() for spec in self.especificaciones]
+
         return data
 
 
@@ -268,13 +316,19 @@ class Mobiliario(db.Model):
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
 
+    version = db.Column(db.Integer, default=1, nullable=False)
+    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
+    editado_desde = db.Column(db.DateTime)
+
     # Relaciones
     tipo_mobiliario = db.relationship('CatTipoMobiliario')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
 
-    def to_dict(self):
-        return {
+    editor = db.relationship('Acceso', foreign_keys=[editado_por])
+
+    def to_dict(self, include_version=True):
+        data = {
             'id_mueble': self.id_mueble,
             'tipo_mobiliario_id': self.tipo_mobiliario_id,
             'tipo_mobiliario': self.tipo_mobiliario.nombre_tipo if self.tipo_mobiliario else None,
@@ -293,6 +347,14 @@ class Mobiliario(db.Model):
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
+
+        if include_version:
+            data['version'] = self.version
+            data['editado_por'] = self.editado_por
+            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
+            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+
+        return data
 
 # ============================================
 # VISTAS
@@ -587,3 +649,35 @@ class VistaHistorialCompleta(db.Model):
 
         except (ValueError, TypeError):
             return valor
+
+class BloqueoActivo(db.Model):
+    """Tabla para tracking de ediciones en progreso"""
+    __tablename__ = 'bloqueos_activos'
+
+    id_bloqueo = db.Column(db.Integer, primary_key=True)
+    tabla = db.Column(db.String(50), nullable=False)
+    registro_id = db.Column(db.Integer, nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'), nullable=False)
+    nombre_usuario = db.Column(db.String(100), nullable=False)
+    fecha_bloqueo = db.Column(db.DateTime, default=datetime.utcnow)
+    expira_en = db.Column(db.DateTime)
+    ip_usuario = db.Column(db.String(45))
+
+    # Relación
+    usuario = db.relationship('Acceso', backref='bloqueos')
+
+    __table_args__ = (
+        db.UniqueConstraint('tabla', 'registro_id', name='uq_bloqueo_tabla_registro'),
+    )
+
+    def to_dict(self):
+        return {
+            'id_bloqueo': self.id_bloqueo,
+            'tabla': self.tabla,
+            'registro_id': self.registro_id,
+            'usuario_id': self.usuario_id,
+            'nombre_usuario': self.nombre_usuario,
+            'fecha_bloqueo': self.fecha_bloqueo.isoformat() if self.fecha_bloqueo else None,
+            'expira_en': self.expira_en.isoformat() if self.expira_en else None,
+            'ip_usuario': self.ip_usuario
+        }

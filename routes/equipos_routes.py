@@ -3,66 +3,26 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from models import EquipoComputo, EspecificacionEquipo
 from utils.decorators import require_permission
+from utils.concurrency import (
+    verificar_version,
+    marcar_en_edicion,
+    limpiar_marca_edicion,
+    liberar_bloqueo
+)
 
 equipos_bp = Blueprint('equipos', __name__)
-
-# @equipos_bp.route('/', methods=['GET'])
-# # @jwt_required()
-# # @require_permission('computo', 'puede_leer')
-# def get_equipos():
-#     """Listar todos los equipos con filtros opcionales"""
-#     # Parámetros de filtro
-#     tipo_activo_id = request.args.get('tipo_activo_id', type=int)
-#     estado_id = request.args.get('estado_id', type=int)
-#     usuario_id = request.args.get('usuario_id', type=int)
-#     search = request.args.get('search', '')
-#     page = request.args.get('page', 1, type=int)
-#     per_page = request.args.get('per_page', 50, type=int)
-    
-#     # Query base
-#     query = EquipoComputo.query
-    
-#     # Aplicar filtros
-#     if tipo_activo_id:
-#         query = query.filter_by(tipo_activo_id=tipo_activo_id)
-#     if estado_id:
-#         query = query.filter_by(estado_id=estado_id)
-#     if usuario_id:
-#         query = query.filter_by(usuario_asignado_id=usuario_id)
-#     if search:
-#         query = query.filter(
-#             db.or_(
-#                 EquipoComputo.nombre_activo.ilike(f'%{search}%'),
-#                 EquipoComputo.marca.ilike(f'%{search}%'),
-#                 EquipoComputo.numero_serie.ilike(f'%{search}%')
-#             )
-#         )
-    
-#     # Ordenar por ID descendente
-#     query = query.order_by(EquipoComputo.id_activo.desc())
-    
-#     # Paginación
-#     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-#     return jsonify({
-#         'equipos': [equipo.to_dict() for equipo in pagination.items],
-#         'total': pagination.total,
-#         'pages': pagination.pages,
-#         'current_page': page
-#     }), 200
-
 
 @equipos_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
 @require_permission('computo', 'puede_leer')
 def get_equipo(id):
-    """Obtener un equipo por ID con especificaciones"""
+    """Obtener un equipo por ID con especificaciones y estado de bloqueo"""
     equipo = EquipoComputo.query.get(id)
-    
+
     if not equipo:
         return jsonify({'error': 'Equipo no encontrado'}), 404
-    
-    return jsonify(equipo.to_dict(include_specs=True)), 200
+
+    return jsonify(equipo.to_dict(include_specs=True, include_version=True)), 200
 
 
 @equipos_bp.route('/', methods=['POST'])
@@ -72,19 +32,19 @@ def create_equipo():
     """Crear nuevo equipo de cómputo"""
     user_id = get_jwt_identity()
     data = request.get_json()
-    
+
     # Validar campos obligatorios
     required_fields = ['nombre_activo', 'tipo_activo_id', 'estado_id']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'Campo {field} es requerido'}), 400
-    
+
     # Verificar número de serie único
     if data.get('numero_serie'):
         existe = EquipoComputo.query.filter_by(numero_serie=data['numero_serie']).first()
         if existe:
             return jsonify({'error': 'El número de serie ya existe'}), 400
-    
+
     try:
         # Crear equipo
         equipo = EquipoComputo(
@@ -98,12 +58,13 @@ def create_equipo():
             usuario_asignado_id=data.get('usuario_asignado_id'),
             sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo'),
             creado_por=user_id,
-            modificado_por=user_id
+            modificado_por=user_id,
+            version=1  # Inicializar versión
         )
-        
+
         db.session.add(equipo)
         db.session.flush()  # Para obtener el ID
-        
+
         # Agregar especificaciones
         if 'especificaciones' in data and data['especificaciones']:
             for orden, spec in enumerate(data['especificaciones'], start=1):
@@ -114,14 +75,14 @@ def create_equipo():
                     orden=orden
                 )
                 db.session.add(especificacion)
-        
+
         db.session.commit()
-        
+
         return jsonify({
             'mensaje': 'Equipo creado exitosamente',
-            'equipo': equipo.to_dict(include_specs=True)
+            'equipo': equipo.to_dict(include_specs=True, include_version=True)
         }), 201
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
@@ -131,21 +92,34 @@ def create_equipo():
 @jwt_required()
 @require_permission('computo', 'puede_actualizar')
 def update_equipo(id):
-    """Actualizar equipo de cómputo"""
+    """Actualizar equipo de cómputo con control de versiones"""
     user_id = get_jwt_identity()
     equipo = EquipoComputo.query.get(id)
-    
+
     if not equipo:
         return jsonify({'error': 'Equipo no encontrado'}), 404
-    
+
     data = request.get_json()
-    
+    version_cliente = data.get('version')
+
+    # VERIFICACIÓN DE VERSIÓN (Control Optimista)
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(EquipoComputo, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': equipo.to_dict(include_specs=True, include_version=True)
+            }), 409  # 409 Conflict
+
     # Verificar número de serie único (si cambió)
     if data.get('numero_serie') and data['numero_serie'] != equipo.numero_serie:
         existe = EquipoComputo.query.filter_by(numero_serie=data['numero_serie']).first()
         if existe:
             return jsonify({'error': 'El número de serie ya existe'}), 400
-    
+
     try:
         # Actualizar campos
         if 'tipo_activo_id' in data:
@@ -164,42 +138,35 @@ def update_equipo(id):
             equipo.observaciones = data['observaciones']
         if 'usuario_asignado_id' in data:
             equipo.usuario_asignado_id = data['usuario_asignado_id']
-        
+
         equipo.modificado_por = user_id
-        
+
         # Actualizar especificaciones si se enviaron
         if 'especificaciones' in data:
-            # Obtener especificaciones existentes indexadas por (nombre, valor)
             specs_existentes = EspecificacionEquipo.query.filter_by(equipo_id=id).all()
-            
-            # Crear un conjunto de las especificaciones nuevas para comparar
+
             specs_nuevas = {
                 (spec['nombre_especificacion'], spec['valor_especificacion']): spec
                 for spec in data['especificaciones']
             }
-            
-            # Crear conjunto de especificaciones existentes
+
             specs_actuales = {
                 (spec.nombre_especificacion, spec.valor_especificacion): spec
                 for spec in specs_existentes
             }
-            
-            # Eliminar especificaciones que ya no están
+
             for key, spec in specs_actuales.items():
                 if key not in specs_nuevas:
                     db.session.delete(spec)
-            
-            # Actualizar orden de existentes y crear nuevas
+
             for orden, spec_data in enumerate(data['especificaciones'], start=1):
                 key = (spec_data['nombre_especificacion'], spec_data['valor_especificacion'])
-                
+
                 if key in specs_actuales:
-                    # Solo actualizar el orden si cambió
                     spec_existente = specs_actuales[key]
                     if spec_existente.orden != orden:
                         spec_existente.orden = orden
                 else:
-                    # Crear nueva especificación
                     nueva_spec = EspecificacionEquipo(
                         equipo_id=id,
                         nombre_especificacion=spec_data['nombre_especificacion'],
@@ -207,14 +174,17 @@ def update_equipo(id):
                         orden=orden
                     )
                     db.session.add(nueva_spec)
-        
+
         db.session.commit()
-        
+
+        # Liberar bloqueo si existe
+        liberar_bloqueo('equipos_computo', id, int(user_id))
+
         return jsonify({
             'mensaje': 'Equipo actualizado exitosamente',
-            'equipo': equipo.to_dict(include_specs=True)
+            'equipo': equipo.to_dict(include_specs=True, include_version=True)
         }), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
@@ -225,17 +195,21 @@ def update_equipo(id):
 @require_permission('computo', 'puede_eliminar')
 def delete_equipo(id):
     """Eliminar equipo de cómputo"""
+    user_id = get_jwt_identity()
     equipo = EquipoComputo.query.get(id)
-    
+
     if not equipo:
         return jsonify({'error': 'Equipo no encontrado'}), 404
-    
+
     try:
-        db.session.delete(equipo)  # CASCADE eliminará especificaciones
+        db.session.delete(equipo)
         db.session.commit()
-        
+
+        # Liberar bloqueo si existe
+        liberar_bloqueo('equipos_computo', id, int(user_id))
+
         return jsonify({'mensaje': 'Equipo eliminado exitosamente'}), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
