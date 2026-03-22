@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from models import Usuario, Acceso, Permiso
+from models import BloqueoActivo, Usuario, Acceso, Permiso
+from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 import bcrypt
 
@@ -35,6 +36,7 @@ def get_responsable(id):
 @require_permission('responsable', 'puede_crear')
 def create_responsable():
     """Crear usuario responsable"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data.get('nombre_usuario'):
@@ -51,7 +53,9 @@ def create_responsable():
             numero_nomina=data.get('numero_nomina'),
             nombre_usuario=data['nombre_usuario'],
             puesto=data.get('puesto'),
-            area_id=data.get('area_id')
+            area_id=data.get('area_id'),
+            version=1,
+            editado_por=user_id
         )
 
         db.session.add(usuario)
@@ -71,13 +75,26 @@ def create_responsable():
 @require_permission('responsable', 'puede_actualizar')
 def update_responsable(id):
     """Actualizar uaurio responsable"""
+    user_id = get_jwt_identity()
     usuario = Usuario.query.get(id)
+
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
 
-    print(data)
+    # VERIFICACIÓN DE VERSIÓN
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(Usuario, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': usuario.to_dict(include_version=True)
+            }), 409
 
     if data.get('numero_nomina') and data['numero_nomina'] != usuario.numero_nomina:
         if Usuario.query.filter_by(numero_nomina=data['numero_nomina']).first():
@@ -90,6 +107,9 @@ def update_responsable(id):
             if campo in data:
                 setattr(usuario, campo, data[campo])
         db.session.commit()
+
+        # Liberar bloqueo
+        liberar_bloqueo('usuario', id, int(user_id))
 
         return jsonify({
             'mensaje': 'usuario actualizado',
@@ -107,12 +127,40 @@ def update_responsable(id):
 @require_permission('responsable', 'puede_eliminar')
 def delete_responsable(id):
     """ELiminar el usuario responsable"""
-    usuario = Usuario.query.get(id)
+    user_id = get_jwt_identity()
 
+    usuario = Usuario.query.get(id)
     if not usuario:
         return jsonify({
             'error': 'Usuario no encontrado'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='usuario',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+            bloqueo_existente = BloqueoActivo.query.filter_by(
+                tabla='usuario',
+                registro_id=id
+            ).first()
+
+            if bloqueo_existente:
+                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+                return jsonify({
+                    'error': 'locked_by_other',
+                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                    'bloqueo': bloqueo_existente.to_dict()
+                }), 409
+            else:
+                return jsonify({
+                    'error': 'no_lock',
+                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+                }), 403
 
     try:
         db.session.delete(usuario)
@@ -168,6 +216,7 @@ def get_acceso(id):
 @require_permission('acceso', 'puede_crear')
 def create_acceso():
     """Crear acceso al sistema"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     required = ['nombre_usuario', 'correo_electronico', 'password']
@@ -188,7 +237,9 @@ def create_acceso():
             nombre_usuario=data['nombre_usuario'],
             correo_electronico=data['correo_electronico'],
             contrasena_hash=password_hash.decode('utf-8'),
-            area_id=data.get('area_id')
+            area_id=data.get('area_id'),
+            version_acceso=1,
+            editado_por_acceso=user_id
         )
 
         db.session.add(acceso)
@@ -230,6 +281,7 @@ def create_acceso():
 @require_permission('acceso', 'puede_actualizar')
 def update_acceso(id):
     """Actualizar cuenta de acceso y/o sus permisos"""
+    user_id = get_jwt_identity()
     acceso = Acceso.query.get(id)
 
     if not acceso:
@@ -238,6 +290,19 @@ def update_acceso(id):
         }), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
+
+    # VERIFICACIÓN DE VERSIÓN (usa version_acceso, no version)
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(Acceso, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': acceso.to_dict(include_version=True)
+            }), 409
 
     try:
         # Actualiar datos básicos
@@ -291,6 +356,9 @@ def update_acceso(id):
         resultado = acceso.to_dict()
         resultado['permisos'] = acceso.permisos_dict()
 
+        # Liberar bloqueo
+        liberar_bloqueo('acceso', id, int(user_id))
+
         return jsonify({
             'mensaje': 'Acceso actualizado',
             'acceso': resultado
@@ -307,12 +375,45 @@ def update_acceso(id):
 @require_permission('acceso', 'puede_eliminar')
 def delete_acceso(id):
     """Eliminar cuenta de acceso (elimina permisos en cascada)"""
+    user_id = get_jwt_identity()
+
+    # No permitir auto-eliminación
+    if int(user_id) == id:
+        return jsonify({'error': 'No puedes eliminar tu propio acceso'}), 400
+
     acceso = Acceso.query.get(id)
 
     if not acceso:
         return jsonify({
             'error': 'Acceso no encontrado'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='acceso',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+        bloqueo_existente = BloqueoActivo.query.filter_by(
+            tabla='acceso',
+            registro_id=id
+        ).first()
+
+        if bloqueo_existente:
+            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+            return jsonify({
+                'error': 'locked_by_other',
+                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                'bloqueo': bloqueo_existente.to_dict()
+            }), 409
+        else:
+            return jsonify({
+                'error': 'no_lock',
+                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+            }), 403
 
     try:
         db.session.delete(acceso)
