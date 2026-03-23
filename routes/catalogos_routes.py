@@ -7,13 +7,43 @@ from utils.decorators import require_permission
 catalogos_bp = Blueprint('catalogos', __name__)
 
 # ---- Áreas ----
+@catalogos_bp.route('/areas_sin_paginacion', methods=['GET'])
+@jwt_required()
+def get_areas_sin_paginar():
+    """Obtener areas sin paginar"""
+    areas = CatArea.query.all()
+
+    if not areas:
+        return jsonify({'error': 'No se econtraron áreas'}), 404
+
+    return jsonify([a.to_dict() for a in areas]), 200
 
 @catalogos_bp.route('/areas', methods=['GET'])
 @jwt_required()
+@require_permission('catalogos', 'puede_leer')
 def get_areas():
-    """Listar áreas"""
-    areas = CatArea.query.all()
-    return jsonify([a.to_dict() for a in areas]), 200
+    search   = request.args.get('search', '').strip()
+    page     = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = CatArea.query
+    if search:
+        query = query.filter(
+            db.or_(
+                CatArea.nombre_area.ilike(f'%{search}%'),
+                CatArea.descripcion.ilike(f'%{search}%')
+            )
+        )
+    query = query.order_by(CatArea.nombre_area.asc())
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'areas':   [a.to_dict() for a in paginated.items],
+        'total':   paginated.total,
+        'pages':   paginated.pages,
+        'current_page': paginated.page,
+    }), 200
+
 
 @catalogos_bp.route('/areas/<int:id>', methods=['GET'])
 @jwt_required()
@@ -107,8 +137,6 @@ def delete_area(id):
     """Eliminar un área en especifico"""
     area = CatArea.query.get(id)
 
-    print(area)
-
     if not area:
         return jsonify({
             'error': 'Área no encontrada'
@@ -132,9 +160,28 @@ def delete_area(id):
 @catalogos_bp.route('/tipos-activo', methods=['GET'])
 @jwt_required()
 def get_tipos_activo():
-    """Listar tipos de activo"""
-    tipos = CatTipoActivo.query.all()
-    return jsonify([t.to_dict() for t in tipos]), 200
+    search   = request.args.get('search', '').strip()
+    page     = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = CatTipoActivo.query
+    if search:
+        query = query.filter(
+            db.or_(
+                CatTipoActivo.nombre_tipo.ilike(f'%{search}%'),
+                CatTipoActivo.descripcion.ilike(f'%{search}%')
+            )
+        )
+    query = query.order_by(CatTipoActivo.nombre_tipo.asc())
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'tipos_activo': [t.to_dict() for t in paginated.items],
+        'total':        paginated.total,
+        'pages':        paginated.pages,
+        'current_page': paginated.page,
+    }), 200
+
 
 @catalogos_bp.route('/activo/<int:id>', methods=['GET'])
 @jwt_required()
@@ -246,9 +293,28 @@ def delete_tipo_activo(id):
 @catalogos_bp.route('/estados', methods=['GET'])
 @jwt_required()
 def get_estados():
-    """Listar estados"""
-    estados = CatEstado.query.all()
-    return jsonify([e.to_dict() for e in estados]), 200
+    search   = request.args.get('search', '').strip()
+    page     = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = CatEstado.query
+    if search:
+        query = query.filter(
+            db.or_(
+                CatEstado.nombre_estado.ilike(f'%{search}%'),
+                CatEstado.descripcion.ilike(f'%{search}%')
+            )
+        )
+    query = query.order_by(CatEstado.nombre_estado.asc())
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'estados': [e.to_dict() for e in paginated.items],
+        'total':   paginated.total,
+        'pages':   paginated.pages,
+        'current_page': paginated.page,
+    }), 200
+
 
 @catalogos_bp.route('/estados/<int:id>', methods=['GET'])
 @jwt_required()
@@ -363,9 +429,27 @@ def delete_estado(id):
 @catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
 @jwt_required()
 def get_tipos_mobiliario():
-    """Listar tipos de mobiliario"""
-    tipos = CatTipoMobiliario.query.all()
-    return jsonify([t.to_dict() for t in tipos]), 200
+    search   = request.args.get('search', '').strip()
+    page     = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = CatTipoMobiliario.query
+    if search:
+        query = query.filter(
+            db.or_(
+                CatTipoMobiliario.nombre_tipo.ilike(f'%{search}%'),
+                CatTipoMobiliario.descripcion.ilike(f'%{search}%')
+            )
+        )
+    query = query.order_by(CatTipoMobiliario.nombre_tipo.asc())
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'tipos_mobiliario': [t.to_dict() for t in paginated.items],
+        'total':            paginated.total,
+        'pages':            paginated.pages,
+        'current_page':     paginated.page,
+    }), 200
 
 @catalogos_bp.route('/mobiliario/<int:id>', methods=['GET'])
 @jwt_required()
