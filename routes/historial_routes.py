@@ -78,14 +78,85 @@ def get_historial():
 
         # ── Filtros ─────────────────────────────────────────────────────
         if search:
-            query = query.filter(
-                or_(
-                    VistaHistorialCompleta.tabla.ilike(f'%{search}%'),
-                    VistaHistorialCompleta.operacion.ilike(f'%{search}%'),
-                    VistaHistorialCompleta.realizado_por.ilike(f'%{search}%'),
-                    VistaHistorialCompleta.registro_id.ilike(f'%{search}%')
-                )
-            )
+            search_lower = search.lower()
+
+            # Mapeo inverso: términos legibles → valores técnicos en BD
+            TABLA_ALIASES = {
+                'computo':      'equipos_computo',
+                'cómputo':      'equipos_computo',
+                'equipo':       'equipos_computo',
+                'mobiliario':   'mobiliario',
+                'mueble':       'mobiliario',
+                'acceso':       'acceso',
+                'usuario':      'usuario',
+                'responsable':  'usuario',
+                'área':         'cat_areas',
+                'area':         'cat_areas',
+                'estado':       'cat_estados',
+                'tipo de activo':    'cat_tipos_activo',
+                'tipos de activo':   'cat_tipos_activo',
+                'tipo activo':       'cat_tipos_activo',
+                'tipo de mobiliario':    'cat_tipos_mobiliario',
+                'tipos de mobiliario':   'cat_tipos_mobiliario',
+                'tipo mobiliario':       'cat_tipos_mobiliario',
+                'catálogo':     None,   # coincide con todas las cat_*
+                'catalogo':     None,
+            }
+
+            OPERACION_ALIASES = {
+                'creacion':   'INSERT',
+                'creación':   'INSERT',
+                'crear':      'INSERT',
+                'nuevo':      'INSERT',
+                'insert':     'INSERT',
+                'edicion':    'UPDATE',
+                'edición':    'UPDATE',
+                'editar':     'UPDATE',
+                'actualizar': 'UPDATE',
+                'update':     'UPDATE',
+                'eliminacion': 'DELETE',
+                'eliminación': 'DELETE',
+                'eliminar':   'DELETE',
+                'borrar':     'DELETE',
+                'delete':     'DELETE',
+            }
+
+            # Resolver si el término coincide con algún alias
+            tabla_buscada     = None
+            operacion_buscada = None
+            es_catalogo       = False
+
+            for alias, tabla_real in TABLA_ALIASES.items():
+                if alias in search_lower:
+                    if tabla_real is None:
+                        es_catalogo = True
+                    else:
+                        tabla_buscada = tabla_real
+                    break
+
+            for alias, op_real in OPERACION_ALIASES.items():
+                if alias in search_lower:
+                    operacion_buscada = op_real
+                    break
+
+            # Construir condiciones OR
+            condiciones = [
+                VistaHistorialCompleta.realizado_por.ilike(f'%{search}%'),
+                VistaHistorialCompleta.registro_id.ilike(f'%{search}%'),
+                VistaHistorialCompleta.tabla.ilike(f'%{search}%'),
+                VistaHistorialCompleta.operacion.ilike(f'%{search}%'),
+            ]
+
+            if tabla_buscada:
+                condiciones.append(VistaHistorialCompleta.tabla == tabla_buscada)
+
+            if es_catalogo:
+                condiciones.append(VistaHistorialCompleta.tabla.like('cat_%'))
+
+            if operacion_buscada:
+                condiciones.append(VistaHistorialCompleta.operacion == operacion_buscada)
+
+            query = query.filter(or_(*condiciones))
 
         if usuario_id:
             query = query.filter(VistaHistorialCompleta.usuario_id == usuario_id)

@@ -66,7 +66,7 @@ def create_area():
     """Crear una nueva área"""
     data = request.get_json()
 
-    if not data.get('nombre'):
+    if not data.get('nombre_area'):
         return jsonify({
             'error': 'El nombre del área es requerido'
         }), 400
@@ -78,7 +78,7 @@ def create_area():
 
     try:
         area = CatArea(
-            nombre_area=data['hombre_area'],
+            nombre_area=data['nombre_area'],
             descripcion=data.get('descripcion'),
             activo=data.get('activo')
         )
