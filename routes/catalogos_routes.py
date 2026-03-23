@@ -34,7 +34,7 @@ def get_areas():
                 CatArea.descripcion.ilike(f'%{search}%')
             )
         )
-    query = query.order_by(CatArea.nombre_area.asc())
+    query = query.order_by(CatArea.id_area.desc())
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -172,7 +172,7 @@ def get_tipos_activo():
                 CatTipoActivo.descripcion.ilike(f'%{search}%')
             )
         )
-    query = query.order_by(CatTipoActivo.nombre_tipo.asc())
+    query = query.order_by(CatTipoActivo.id_tipo_activo.desc())
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -305,7 +305,7 @@ def get_estados():
                 CatEstado.descripcion.ilike(f'%{search}%')
             )
         )
-    query = query.order_by(CatEstado.nombre_estado.asc())
+    query = query.order_by(CatEstado.id_estado.desc())
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -441,7 +441,7 @@ def get_tipos_mobiliario():
                 CatTipoMobiliario.descripcion.ilike(f'%{search}%')
             )
         )
-    query = query.order_by(CatTipoMobiliario.nombre_tipo.asc())
+    query = query.order_by(CatTipoMobiliario.id_tipo_mobiliario.desc())
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({

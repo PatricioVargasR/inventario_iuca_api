@@ -195,7 +195,7 @@ def get_vista_responsables_completa():
         )
 
     # Ordenar alfabéticamente por nombre
-    query = query.order_by(VistaUsuariosCompleta.nombre_usuario.asc())
+    query = query.order_by(VistaUsuariosCompleta.id_usuario.desc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -301,7 +301,7 @@ def get_vista_accesos_completa():
         )
 
     # Ordenar
-    query = query.order_by(VistaAccesosCompleta.nombre_usuario.asc())
+    query = query.order_by(VistaAccesosCompleta.id_acceso.desc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)

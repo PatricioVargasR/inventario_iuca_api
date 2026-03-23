@@ -10,6 +10,8 @@
 # app.py - Aplicación Principal
 # ============================================
 
+#TODO: AÑADIR FILTRO DE ASC Y DESC
+
 from flask import Flask
 from utils.extesions import db, jwt
 from flask_cors import CORS
