@@ -11,7 +11,7 @@ catalogos_bp = Blueprint('catalogos', __name__)
 @jwt_required()
 def get_areas_completo():
     """Obtener areas sin paginar"""
-    areas = CatArea.query.all()
+    areas = CatArea.query.filter_by(activo=True)
 
     if not areas:
         return jsonify({'error': 'No se econtraron áreas'}), 404
@@ -160,7 +160,7 @@ def delete_area(id):
 @catalogos_bp.route('/tipos-activo-completo', methods=['GET'])
 @jwt_required()
 def get_tipos_activos_completo():
-    activos = CatTipoActivo.query.all()
+    activos = CatTipoActivo.query.filter_by(activo=True)
 
     if not activos:
         return jsonify({
@@ -305,7 +305,7 @@ def delete_tipo_activo(id):
 @catalogos_bp.route('/estados-completo', methods=['GET'])
 @jwt_required()
 def get_estados_completo():
-    estados = CatEstado.query.all()
+    estados = CatEstado.query.filter_by(activo=True)
 
     if not estados:
         return jsonify({
@@ -453,7 +453,7 @@ def delete_estado(id):
 @catalogos_bp.route('/tipo-completo', methods=['GET'])
 @jwt_required()
 def get_mobiliario_completo():
-    mobiliarios = CatTipoMobiliario.query.all()
+    mobiliarios = CatTipoMobiliario.query.filter_by(activo=True)
 
     if not mobiliarios:
         return jsonify({
@@ -463,7 +463,7 @@ def get_mobiliario_completo():
     return jsonify([m.to_dict() for m in mobiliarios]), 200
 
 @catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
-# @jwt_required()
+@jwt_required()
 def get_tipos_mobiliario():
     search   = request.args.get('search', '').strip()
     page     = request.args.get('page', 1, type=int)
