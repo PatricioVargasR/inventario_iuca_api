@@ -7,9 +7,9 @@ from utils.decorators import require_permission
 catalogos_bp = Blueprint('catalogos', __name__)
 
 # ---- Áreas ----
-@catalogos_bp.route('/areas_sin_paginacion', methods=['GET'])
+@catalogos_bp.route('/areas-completo', methods=['GET'])
 @jwt_required()
-def get_areas_sin_paginar():
+def get_areas_completo():
     """Obtener areas sin paginar"""
     areas = CatArea.query.all()
 
@@ -157,6 +157,18 @@ def delete_area(id):
 
 # ---- Tipos de Activo ----
 
+@catalogos_bp.route('/tipos-activo-completo', methods=['GET'])
+@jwt_required()
+def get_tipos_activos_completo():
+    activos = CatTipoActivo.query.all()
+
+    if not activos:
+        return jsonify({
+            'error': 'No se encontraron tipos de activos'
+        }), 404
+
+    return jsonify([a.to_dict() for a in activos]), 200
+
 @catalogos_bp.route('/tipos-activo', methods=['GET'])
 @jwt_required()
 def get_tipos_activo():
@@ -289,6 +301,18 @@ def delete_tipo_activo(id):
         }), 500
 
 # ---- Estados ----
+
+@catalogos_bp.route('/estados-completo', methods=['GET'])
+@jwt_required()
+def get_estados_completo():
+    estados = CatEstado.query.all()
+
+    if not estados:
+        return jsonify({
+            'error': 'No se encontraron estados'
+        }), 404
+
+    return jsonify([e.to_dict() for e in estados]), 200
 
 @catalogos_bp.route('/estados', methods=['GET'])
 @jwt_required()
@@ -426,8 +450,20 @@ def delete_estado(id):
 
 # ----- Tipos de Mobiliario ----
 
-@catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
+@catalogos_bp.route('/tipo-completo', methods=['GET'])
 @jwt_required()
+def get_mobiliario_completo():
+    mobiliarios = CatTipoMobiliario.query.all()
+
+    if not mobiliarios:
+        return jsonify({
+            'error': 'No se encontraron tipos de mobiliarios'
+        }), 404
+
+    return jsonify([m.to_dict() for m in mobiliarios]), 200
+
+@catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
+# @jwt_required()
 def get_tipos_mobiliario():
     search   = request.args.get('search', '').strip()
     page     = request.args.get('page', 1, type=int)
