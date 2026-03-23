@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
-from models import CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario
+from models import BloqueoActivo, CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario
+from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 
 catalogos_bp = Blueprint('catalogos', __name__)
@@ -64,6 +65,7 @@ def get_area(id):
 @require_permission('catalogos', 'puede_crear')
 def create_area():
     """Crear una nueva área"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data.get('nombre_area'):
@@ -80,7 +82,9 @@ def create_area():
         area = CatArea(
             nombre_area=data['nombre_area'],
             descripcion=data.get('descripcion'),
-            activo=data.get('activo')
+            activo=data.get('activo'),
+            version=1,
+            editador_por=user_id
         )
         db.session.add(area)
         db.session.commit()
@@ -100,6 +104,7 @@ def create_area():
 @require_permission('catalogos', 'puede_actualizar')
 def update_area(id):
     """Actualizar un área en particular"""
+    user_id = get_jwt_identity()
     area = CatArea.query.get(id)
 
     if not area:
@@ -108,6 +113,19 @@ def update_area(id):
         }), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
+
+    # VERIFICIÓN DE VERSIÓN
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(CatArea, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': area.to_dict(include_version=True)
+            }), 409
 
     try:
         if 'nombre_area' in data:
@@ -120,6 +138,10 @@ def update_area(id):
             area.activo = data['activo']
 
         db.session.commit()
+
+        # Librera bloqueo
+        liberar_bloqueo('cat_areas', id, int(user_id))
+
         return jsonify({
             'mensaje': 'Área actualizada',
             'area': area.to_dict()
@@ -135,12 +157,40 @@ def update_area(id):
 @require_permission('catalogos', 'puede_eliminar')
 def delete_area(id):
     """Eliminar un área en especifico"""
+    user_id = get_jwt_identity()
     area = CatArea.query.get(id)
 
     if not area:
         return jsonify({
             'error': 'Área no encontrada'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='usuario',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+            bloqueo_existente = BloqueoActivo.query.filter_by(
+                tabla='usuario',
+                registro_id=id
+            ).first()
+
+            if bloqueo_existente:
+                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+                return jsonify({
+                    'error': 'locked_by_other',
+                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                    'bloqueo': bloqueo_existente.to_dict()
+                }), 409
+            else:
+                return jsonify({
+                    'error': 'no_lock',
+                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+                }), 403
 
     try:
         db.session.delete(area)
@@ -214,6 +264,7 @@ def get_activo(id):
 @require_permission('catalogos', 'puede_crear')
 def create_tipo_activo():
     """Crear un tipo de activo"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data.get('nombre_tipo'):
@@ -230,7 +281,9 @@ def create_tipo_activo():
         tipo = CatTipoActivo(
             nombre_tipo=data['nombre_tipo'],
             descripcion=data.get('descripcion'),
-            activo=data.get('activo')
+            activo=data.get('activo'),
+            version=1,
+            editado_por=user_id
         )
         db.session.add(tipo)
         db.session.commit()
@@ -250,6 +303,7 @@ def create_tipo_activo():
 @require_permission('catalogos', 'puede_actualizar')
 def update_tipo_activo(id):
     """Actualizar tipo de activo"""
+    user_id = get_jwt_identity()
     tipo = CatTipoActivo.query.get(id)
 
     if not tipo:
@@ -258,6 +312,20 @@ def update_tipo_activo(id):
         }), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
+
+    # VERIFICACIÓN DE VERSIÓN
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(CatTipoActivo, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': tipo.to_dict(include_version=True)
+            }), 409
+
 
     try:
         if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
@@ -265,6 +333,10 @@ def update_tipo_activo(id):
         if 'activo' in data: tipo.activo = data['activo']
 
         db.session.commit()
+
+        # Liberar bloqueo
+        liberar_bloqueo('cat_tipos_activo', id, int(user_id))
+
         return jsonify({
             'mensaje': 'tipo actualizado',
             'tipo': tipo.to_dict()
@@ -280,12 +352,40 @@ def update_tipo_activo(id):
 @require_permission('catalogos', 'puede_eliminar')
 def delete_tipo_activo(id):
     """Eliminar un tipo de activo"""
+    user_id = get_jwt_identity()
     tipo = CatTipoActivo.query.get(id)
 
     if not tipo:
         return jsonify({
             'error': 'Tipo no encontrado'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='usuario',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+            bloqueo_existente = BloqueoActivo.query.filter_by(
+                tabla='usuario',
+                registro_id=id
+            ).first()
+
+            if bloqueo_existente:
+                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+                return jsonify({
+                    'error': 'locked_by_other',
+                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                    'bloqueo': bloqueo_existente.to_dict()
+                }), 409
+            else:
+                return jsonify({
+                    'error': 'no_lock',
+                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+                }), 403
 
     try:
         db.session.delete(tipo)
@@ -359,6 +459,7 @@ def get_estado(id):
 @require_permission('catalogos', 'puede_crear')
 def create_estado():
     """Crear un nuevo estado"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data.get('nombre_estado'):
@@ -376,7 +477,9 @@ def create_estado():
             nombre_estado=data['nombre_estado'],
             descripcion=data.get('descripcion'),
             activo=data.get('activo'),
-            color_hex=data.get('color_hex')
+            color_hex=data.get('color_hex'),
+            version=1,
+            editado_por=user_id
         )
 
         db.session.add(estado)
@@ -397,6 +500,7 @@ def create_estado():
 @require_permission('catalogos', 'puede_actualizar')
 def update_estado(id):
     """Actualizar un estado"""
+    user_id = get_jwt_identity()
     estado = CatEstado.query.get(id)
 
     if not estado:
@@ -405,6 +509,19 @@ def update_estado(id):
         }), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
+
+    # Verificación de versión
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(CatEstado, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': estado.to_dict(include_version=True)
+            }), 409
 
     try:
         if 'nombre_estado' in data: estado.nombre_estado = data['nombre_estado']
@@ -413,6 +530,10 @@ def update_estado(id):
         if 'activo' in data: estado.activo = data['activo']
 
         db.session.commit()
+
+        # Liberar bloqueo
+        liberar_bloqueo('cat_estados', id, int(user_id))
+
         return jsonify({
             'mensaje': 'Esatdo actualizado',
             'estado': estado.to_dict()
@@ -428,12 +549,40 @@ def update_estado(id):
 @require_permission('catalogos', 'puede_eliminar')
 def delete_estado(id):
     """Eliminar un estado"""
+    user_id = get_jwt_identity()
     estado = CatEstado.query.get(id)
 
     if not estado:
         return jsonify({
             'error': 'Estado no encontrado'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='usuario',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+            bloqueo_existente = BloqueoActivo.query.filter_by(
+                tabla='usuario',
+                registro_id=id
+            ).first()
+
+            if bloqueo_existente:
+                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+                return jsonify({
+                    'error': 'locked_by_other',
+                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                    'bloqueo': bloqueo_existente.to_dict()
+                }), 409
+            else:
+                return jsonify({
+                    'error': 'no_lock',
+                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+                }), 403
 
     try:
         db.session.delete(estado)
@@ -506,6 +655,7 @@ def get_catalogo(id):
 @require_permission('catalogos', 'puede_crear')
 def create_tipo_mobiliario():
     """Crear un nuevo tipo de mobiliario"""
+    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data.get('nombre_tipo'):
@@ -522,7 +672,9 @@ def create_tipo_mobiliario():
         tipo = CatTipoMobiliario(
             nombre_activo=data['nombre_tipo'],
             descripcion=data.get('descripcion'),
-            activo=data.get('activo')
+            activo=data.get('activo'),
+            version=1,
+            editado_por=user_id
         )
         db.session.add(tipo)
         db.session.commit()
@@ -541,6 +693,7 @@ def create_tipo_mobiliario():
 @require_permission('catalogos', 'puedo_actualizar')
 def update_tipo_mobiliario(id):
     """Actualizar un tipo de mobiliario"""
+    user_id = get_jwt_identity()
     tipo = CatTipoMobiliario.query.get(id)
 
     if not tipo:
@@ -549,6 +702,19 @@ def update_tipo_mobiliario(id):
         }), 404
 
     data = request.get_json()
+    version_cliente = data.get('version')
+
+    # Verificación de versión
+    if version_cliente is not None:
+        es_valida, version_actual = verificar_version(CatTipoMobiliario, id, version_cliente)
+
+        if not es_valida:
+            return jsonify({
+                'error': 'conflict',
+                'mensaje': 'El registro fue modificado por otro usuario',
+                'version_actual': version_actual,
+                'datos_actuales': tipo.to_dict(include_version=True)
+            }), 409
 
     try:
         if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo']
@@ -556,6 +722,9 @@ def update_tipo_mobiliario(id):
         if 'activo' in data: tipo.activo = data['activo']
 
         db.session.commit()
+
+        # Liberar bloqueo
+        liberar_bloqueo('cat_tipos_mobiliario', id, int(user_id))
 
         return jsonify({
             'mensaje': 'tipo actualizado',
@@ -572,12 +741,40 @@ def update_tipo_mobiliario(id):
 @require_permission('catalogos', 'puede_eliminar')
 def delete_tipo_mobiliario(id):
     """Eliminar un tipo de mobiliario"""
+    user_id = get_jwt_identity()
     tipo = CatTipoMobiliario.query.get(id)
 
     if not tipo:
         return jsonify({
             'error': 'Tipo no encontrado'
         }), 404
+
+    # VERIFICAR BLOQUEO
+    bloqueo = BloqueoActivo.query.filter_by(
+        tabla='usuario',
+        registro_id=id,
+        usuario_id=user_id,
+        tipo_bloqueo='eliminacion'
+    ).first()
+
+    if not bloqueo:
+            bloqueo_existente = BloqueoActivo.query.filter_by(
+                tabla='usuario',
+                registro_id=id
+            ).first()
+
+            if bloqueo_existente:
+                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+                return jsonify({
+                    'error': 'locked_by_other',
+                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                    'bloqueo': bloqueo_existente.to_dict()
+                }), 409
+            else:
+                return jsonify({
+                    'error': 'no_lock',
+                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+                }), 403
 
     try:
         db.session.delete(tipo)
