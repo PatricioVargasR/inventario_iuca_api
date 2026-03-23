@@ -23,7 +23,7 @@ def limpiar_bloqueos_expirados():
     """Elimina bloqueos que ya expiraron"""
     try:
         BloqueoActivo.query.filter(
-            BloqueoActivo.expira_en < datetime.utcnow()
+            BloqueoActivo.expira_en < datetime.now()
         ).delete()
         db.session.commit()
     except Exception as e:
@@ -67,7 +67,7 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
     if bloqueo_existente:
         # Si el bloqueo es del mismo usuario del mismo tipo, extender tiempo
         if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo == tipo_bloqueo:
-            bloqueo_existente.expira_en = datetime.utcnow() + timedelta(minutes=duracion_minutos)
+            bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
         
@@ -75,7 +75,7 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
         if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo != tipo_bloqueo:
             # Actualizar tipo y tiempo
             bloqueo_existente.tipo_bloqueo = tipo_bloqueo
-            bloqueo_existente.expira_en = datetime.utcnow() + timedelta(minutes=duracion_minutos)
+            bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
         
@@ -95,7 +95,7 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
             usuario_id=usuario_id,
             nombre_usuario=nombre_usuario,
             tipo_bloqueo=tipo_bloqueo,
-            expira_en=datetime.utcnow() + timedelta(minutes=duracion_minutos)
+            expira_en=datetime.now() + timedelta(minutes=duracion_minutos)
         )
         db.session.add(nuevo_bloqueo)
         db.session.commit()
@@ -188,7 +188,7 @@ def marcar_en_edicion(modelo, registro_id, usuario_id):
         registro = modelo.query.get(registro_id)
         if registro:
             registro.editado_por = usuario_id
-            registro.editado_desde = datetime.utcnow()
+            registro.editado_desde = datetime.now()
             db.session.commit()
             return True
         return False

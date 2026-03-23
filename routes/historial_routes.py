@@ -13,6 +13,8 @@ historial_bp = Blueprint('historial', __name__)
 
 historial_bp = Blueprint('historial', __name__, url_prefix='/api/historial')
 
+# TODO: MODIFICAR ACCIONES QUE SE MUESTRAN
+# TODO: FILTRO DE BUSQUEDA
 @historial_bp.route('/', methods=['GET'])
 @jwt_required()
 @require_permission('historial', 'puede_leer')
@@ -24,17 +26,57 @@ def get_historial():
         per_page = request.args.get('per_page', 20, type=int)
 
         # Filtros
-        search = request.args.get('search', '').strip()
-        tipo_registro = request.args.get('tipo_registro', '').strip()
+        search        = request.args.get('search', '').strip()
+        tipo_registro  = request.args.get('tipo_registro', '').strip()
         tipo_movimiento = request.args.get('tipo_movimiento', '').strip()
-        usuario_id = request.args.get('usuario_id')
-        fecha_desde = request.args.get('fecha_desde', '').strip()
-        fecha_hasta = request.args.get('fecha_hasta', '').strip()
+        usuario_id    = request.args.get('usuario_id')
+        fecha_desde   = request.args.get('fecha_desde', '').strip()
+        fecha_hasta   = request.args.get('fecha_hasta', '').strip()
 
-        # Query base
-        query = VistaHistorialCompleta.query
+        # ── Tablas que SÍ se muestran en el historial ──────────────────
+        TABLAS_VISIBLES = {
+            'equipos_computo',
+            'mobiliario',
+            'usuario',
+            'acceso',
+            'cat_areas',
+            'cat_estados',
+            'cat_tipos_activo',
+            'cat_tipos_mobiliario',
+        }
 
-        # Filtro de búsqueda rápida (en tabla, operación, realizado_por, registro_id)
+        # ── Campos que NO se muestran aunque la tabla sí sea visible ───
+        # Si un UPDATE solo contiene campos de esta lista, se omite el registro
+        CAMPOS_IGNORADOS = {
+            'ultimo_acceso',
+            'fecha_modificacion',
+            'modificado_por',
+            'version',
+            'token_recuperacion',
+            'token_expiracion',
+            'intentos_fallidos',
+            'bloqueado_hasta',
+            # ── Campos de sesión ──
+            'ip_sesion',
+            'ip_ultimo_acceso',
+            'user_agent',
+            'sesion_activa',
+            'refresh_token',
+            'ultimo_login',
+        }
+        # Query base — solo tablas visibles
+        query = VistaHistorialCompleta.query.filter(
+            VistaHistorialCompleta.tabla.in_(TABLAS_VISIBLES)
+        )
+
+        # Excluir UPDATEs cuyo único cambio sea un campo ignorado
+        # (se hace en Python tras paginación para no complicar el ORM,
+        #  pero primero excluimos los casos más comunes a nivel SQL)
+        # Nota: si cambios es un JSON como {"ultimo_acceso": {...}},
+        # podemos filtrar en SQL con cast + operador JSON
+        # Se hace la exclusión post-fetch más abajo.
+
+        # ── Filtros ─────────────────────────────────────────────────────
         if search:
             query = query.filter(
                 or_(
@@ -45,34 +87,29 @@ def get_historial():
                 )
             )
 
-        # Filtro de búsqueda por usuario
         if usuario_id:
             query = query.filter(VistaHistorialCompleta.usuario_id == usuario_id)
 
-        # Filtro por tipo de registro
         if tipo_registro:
-            # Mapear nombres amigables a nombres de tabla
             tabla_map = {
-                'computo': 'equipos_computo',
-                'mobiliario': 'mobiliario',
-                'acceso': 'acceso',
-                'usuario': 'usuario'
+                'computo':     'equipos_computo',
+                'mobiliario':  'mobiliario',
+                'acceso':      'acceso',
+                'usuario':     'usuario',
+                'cat_areas':   'cat_areas',
             }
             tabla_nombre = tabla_map.get(tipo_registro.lower(), tipo_registro)
             query = query.filter(VistaHistorialCompleta.tabla == tabla_nombre)
 
-        # Filtro por tipo de movimiento
         if tipo_movimiento:
-            # Mapear nombres amigables a operaciones
             operacion_map = {
-                'creacion': 'INSERT',
-                'edicion': 'UPDATE',
+                'creacion':   'INSERT',
+                'edicion':    'UPDATE',
                 'eliminacion': 'DELETE'
             }
             operacion_nombre = operacion_map.get(tipo_movimiento.lower(), tipo_movimiento.upper())
             query = query.filter(VistaHistorialCompleta.operacion == operacion_nombre)
 
-        # Filtro por rango de fechas
         if fecha_desde:
             try:
                 fecha_desde_dt = datetime.strptime(fecha_desde, '%Y-%m-%d')
@@ -82,7 +119,6 @@ def get_historial():
 
         if fecha_hasta:
             try:
-                # Incluir todo el día hasta las 23:59:59
                 fecha_hasta_dt = datetime.strptime(fecha_hasta, '%Y-%m-%d')
                 fecha_hasta_dt = fecha_hasta_dt.replace(hour=23, minute=59, second=59)
                 query = query.filter(VistaHistorialCompleta.fecha <= fecha_hasta_dt)
@@ -92,22 +128,38 @@ def get_historial():
         # Ordenar por fecha descendente
         query = query.order_by(VistaHistorialCompleta.fecha.desc())
 
-        # Paginación
+        # ── Paginación ──────────────────────────────────────────────────
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
+        # ── Filtro post-fetch: descartar UPDATEs de solo campos ignorados
+        def es_visible(item):
+            """Devuelve False si el registro no aporta información útil."""
+            if item.operacion != 'UPDATE':
+                return True
+            if not item.cambios:
+                return False  # UPDATE sin cambios registrados → omitir
+            campos_cambiados = set(item.cambios.keys())
+            # Si todos los campos cambiados son ignorados, omitir
+            return not campos_cambiados.issubset(CAMPOS_IGNORADOS)
+
+        movimientos_filtrados = [
+            item.to_dict_detallado()
+            for item in paginated.items
+            if es_visible(item)
+        ]
+
         return jsonify({
-            'movimientos': [item.to_dict_detallado() for item in paginated.items],
-            'total': paginated.total,
-            'pages': paginated.pages,
-            'current_page': paginated.page,
-            'per_page': per_page,
-            'has_next': paginated.has_next,
-            'has_prev': paginated.has_prev
+            'movimientos':   movimientos_filtrados,
+            'total':         paginated.total,
+            'pages':         paginated.pages,
+            'current_page':  paginated.page,
+            'per_page':      per_page,
+            'has_next':      paginated.has_next,
+            'has_prev':      paginated.has_prev
         }), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @historial_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()

@@ -14,6 +14,8 @@ from flask import Flask
 from utils.extesions import db, jwt
 from flask_cors import CORS
 from config import Config
+from sqlalchemy import event, text
+from sqlalchemy.engine import Engine
 from utils.historial_tracker import set_current_user_for_triggers
 import os
 
@@ -60,6 +62,11 @@ def create_app(config_class=Config):
         # Establecer usuario para triggers de historial
         set_current_user_for_triggers()
 
+    @event.listens_for(Engine, "connect")
+    def set_timezone(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET TIME ZONE 'America/Mexico_City'")
+        cursor.close()
 
     return app
 

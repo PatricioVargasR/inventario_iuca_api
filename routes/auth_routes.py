@@ -65,8 +65,8 @@ def login():
 
     # Actualizar información de sesión
     usuario.token_sesion_activa = access_token
-    usuario.fecha_inicio_sesion = datetime.utcnow()
-    usuario.ultimo_acceso = datetime.utcnow()
+    usuario.fecha_inicio_sesion = datetime.now()
+    usuario.ultimo_acceso = datetime.now()
     usuario.ip_sesion = client_ip
 
     db.session.commit()
@@ -130,6 +130,3 @@ def get_current_user():
         **usuario.to_dict(),
         'permisos': usuario.permisos_dict()
     }), 200
-
-
-# ELIMINAR el endpoint /force-logout ya que no se usará

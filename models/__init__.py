@@ -13,7 +13,7 @@ class CatArea(db.Model):
     nombre_area = db.Column(db.String(50), nullable=False, unique=True)
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -31,7 +31,7 @@ class CatTipoActivo(db.Model):
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -50,7 +50,7 @@ class CatEstado(db.Model):
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     color_hex = db.Column(db.String(7))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -69,7 +69,7 @@ class CatTipoMobiliario(db.Model):
     nombre_tipo = db.Column(db.String(30), nullable=False, unique=True)
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -91,7 +91,7 @@ class Usuario(db.Model):
     nombre_usuario = db.Column(db.String(100), nullable=False)
     puesto = db.Column(db.String(80))
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     version = db.Column(db.Integer, default=1, nullable=False)
     editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
@@ -129,8 +129,8 @@ class Acceso(db.Model):
     correo_electronico = db.Column(db.String(100), unique=True, nullable=False)
     contrasena_hash = db.Column(db.String(255), nullable=False)
     ultimo_acceso = db.Column(db.DateTime)
-    fecha_registro = db.Column(db.Date, default=datetime.utcnow().date)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_registro = db.Column(db.Date, default=datetime.now().date)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     # NUEVOS CAMPOS PARA CONTROL DE SESIÓN
     token_sesion_activa = db.Column(db.String(500))  # Token JWT de la sesión activa
@@ -192,7 +192,7 @@ class Permiso(db.Model):
     puede_leer = db.Column(db.Boolean, default=True)
     puede_actualizar = db.Column(db.Boolean, default=False)
     puede_eliminar = db.Column(db.Boolean, default=False)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     __table_args__ = (
         db.UniqueConstraint('acceso_id', 'modulo', name='uq_acceso_modulo'),
@@ -224,14 +224,14 @@ class EquipoComputo(db.Model):
     modelo = db.Column(db.String(50))
     numero_serie = db.Column(db.String(50), unique=True)
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    fecha_registro = db.Column(db.Date, default=datetime.utcnow().date)
+    fecha_registro = db.Column(db.Date, default=datetime.now().date)
     observaciones = db.Column(db.Text)
     usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'))
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
     version = db.Column(db.Integer, default=1, nullable=False)
     editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
@@ -285,7 +285,7 @@ class EspecificacionEquipo(db.Model):
     nombre_especificacion = db.Column(db.String(100), nullable=False)
     valor_especificacion = db.Column(db.String(100), nullable=False)
     orden = db.Column(db.Integer, default=1)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
@@ -312,9 +312,9 @@ class Mobiliario(db.Model):
     fecha_asignacion = db.Column(db.Date)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
     version = db.Column(db.Integer, default=1, nullable=False)
     editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
@@ -660,7 +660,7 @@ class BloqueoActivo(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso', ondelete='CASCADE'), nullable=False)
     nombre_usuario = db.Column(db.String(100), nullable=False)
     tipo_bloqueo = db.Column(db.String(20), default='edicion', nullable=False)  # 'edicion' o 'eliminacion'
-    fecha_bloqueo = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_bloqueo = db.Column(db.DateTime, default=datetime.now)
     expira_en = db.Column(db.DateTime, nullable=False)
     ip_usuario = db.Column(db.String(45))
 
