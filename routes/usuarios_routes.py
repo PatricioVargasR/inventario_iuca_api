@@ -339,7 +339,6 @@ def update_acceso(id):
                     permiso.puede_actualizar = p_modulo.get('puede_actualizar', permiso.puede_actualizar)
                     permiso.puede_eliminar = p_modulo.get('puede_eliminar', permiso.puede_eliminar)
 
-                    print(modulo, permiso.puede_eliminar)
                 elif p_modulo:
                     # Crear si no existía y se enviaron datos
                     nuevo = Permiso(

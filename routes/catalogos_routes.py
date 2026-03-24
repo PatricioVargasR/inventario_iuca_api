@@ -167,7 +167,7 @@ def delete_area(id):
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
-        tabla='usuario',
+        tabla='cat_areas',
         registro_id=id,
         usuario_id=user_id,
         tipo_bloqueo='eliminacion'
@@ -175,7 +175,7 @@ def delete_area(id):
 
     if not bloqueo:
             bloqueo_existente = BloqueoActivo.query.filter_by(
-                tabla='usuario',
+                tabla='cat_areas',
                 registro_id=id
             ).first()
 
@@ -362,7 +362,7 @@ def delete_tipo_activo(id):
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
-        tabla='usuario',
+        tabla='cat_tipos_activo',
         registro_id=id,
         usuario_id=user_id,
         tipo_bloqueo='eliminacion'
@@ -370,7 +370,7 @@ def delete_tipo_activo(id):
 
     if not bloqueo:
             bloqueo_existente = BloqueoActivo.query.filter_by(
-                tabla='usuario',
+                tabla='cat_tipos_activo',
                 registro_id=id
             ).first()
 
@@ -559,7 +559,7 @@ def delete_estado(id):
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
-        tabla='usuario',
+        tabla='cat_estados',
         registro_id=id,
         usuario_id=user_id,
         tipo_bloqueo='eliminacion'
@@ -567,7 +567,7 @@ def delete_estado(id):
 
     if not bloqueo:
             bloqueo_existente = BloqueoActivo.query.filter_by(
-                tabla='usuario',
+                tabla='cat_estados',
                 registro_id=id
             ).first()
 
@@ -751,7 +751,7 @@ def delete_tipo_mobiliario(id):
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
-        tabla='usuario',
+        tabla='cat_tipos_mobiliario',
         registro_id=id,
         usuario_id=user_id,
         tipo_bloqueo='eliminacion'
@@ -759,7 +759,7 @@ def delete_tipo_mobiliario(id):
 
     if not bloqueo:
             bloqueo_existente = BloqueoActivo.query.filter_by(
-                tabla='usuario',
+                tabla='cat_tipos_mobiliario',
                 registro_id=id
             ).first()
 
