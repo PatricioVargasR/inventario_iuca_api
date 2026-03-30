@@ -84,7 +84,7 @@ def create_area():
             descripcion=data.get('descripcion'),
             activo=data.get('activo'),
             version=1,
-            editador_por=user_id
+            editado_por=user_id
         )
         db.session.add(area)
         db.session.commit()

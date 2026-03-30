@@ -26,7 +26,8 @@ class CatArea(db.Model):
             'id_area': self.id_area,
             'nombre_area': self.nombre_area,
             'activo': self.activo,
-            'descripcion': self.descripcion
+            'descripcion': self.descripcion,
+            'fecha_creacion': self.fecha_creacion
         }
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN

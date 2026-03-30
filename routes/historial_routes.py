@@ -13,8 +13,6 @@ historial_bp = Blueprint('historial', __name__)
 
 historial_bp = Blueprint('historial', __name__, url_prefix='/api/historial')
 
-# TODO: MODIFICAR ACCIONES QUE SE MUESTRAN
-# TODO: FILTRO DE BUSQUEDA
 @historial_bp.route('/', methods=['GET'])
 @jwt_required()
 @require_permission('historial', 'puede_leer')
@@ -64,6 +62,7 @@ def get_historial():
             'refresh_token',
             'ultimo_login',
         }
+
         # Query base — solo tablas visibles
         query = VistaHistorialCompleta.query.filter(
             VistaHistorialCompleta.tabla.in_(TABLAS_VISIBLES)
