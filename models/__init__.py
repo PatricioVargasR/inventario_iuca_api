@@ -60,7 +60,8 @@ class CatTipoActivo(db.Model):
             'id_tipo_activo': self.id_tipo_activo,
             'nombre_tipo': self.nombre_tipo,
             'activo': self.activo,
-            'descripcion': self.descripcion
+            'descripcion': self.descripcion,
+            'fecha_creacion': self.fecha_creacion
         }
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
@@ -95,7 +96,8 @@ class CatEstado(db.Model):
             'nombre_estado': self.nombre_estado,
             'activo': self.activo,
             'descripcion': self.descripcion,
-            'color_hex': self.color_hex
+            'color_hex': self.color_hex,
+            'fecha_creacion': self.fecha_creacion
         }
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
@@ -127,7 +129,9 @@ class CatTipoMobiliario(db.Model):
             'id_tipo_mobiliario': self.id_tipo_mobiliario,
             'nombre_tipo': self.nombre_tipo,
             'activo': self.activo,
-            'descripcion': self.descripcion
+            'descripcion': self.descripcion,
+            'fecha_creacion': self.fecha_creacion
+
         }
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN

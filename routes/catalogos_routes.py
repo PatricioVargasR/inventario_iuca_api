@@ -670,7 +670,7 @@ def create_tipo_mobiliario():
 
     try:
         tipo = CatTipoMobiliario(
-            nombre_activo=data['nombre_tipo'],
+            nombre_tipo=data['nombre_tipo'],
             descripcion=data.get('descripcion'),
             activo=data.get('activo'),
             version=1,
@@ -690,7 +690,7 @@ def create_tipo_mobiliario():
 
 @catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['PUT'])
 @jwt_required()
-@require_permission('catalogos', 'puedo_actualizar')
+@require_permission('catalogos', 'puede_actualizar')
 def update_tipo_mobiliario(id):
     """Actualizar un tipo de mobiliario"""
     user_id = get_jwt_identity()
