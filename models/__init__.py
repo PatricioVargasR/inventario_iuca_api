@@ -193,7 +193,6 @@ class Acceso(db.Model):
     correo_electronico = db.Column(db.String(100), unique=True, nullable=False)
     contrasena_hash = db.Column(db.String(255), nullable=False)
     ultimo_acceso = db.Column(db.DateTime)
-    fecha_registro = db.Column(db.Date, default=datetime.now().date)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     # NUEVOS CAMPOS PARA CONTROL DE SESIÓN
@@ -202,9 +201,9 @@ class Acceso(db.Model):
     ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
 
     # Nota: Se usa nombre diferente para evitar conflicto con otros modelos
-    version_acceso = db.Column(db.Integer, default=1, nullable=False)
-    editado_por_acceso = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde_acceso = db.Column(db.DateTime)
+    version = db.Column(db.Integer, default=1, nullable=False)
+    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
+    editado_desde= db.Column(db.DateTime)
 
     # Relaciones
     area = db.relationship(
@@ -219,7 +218,7 @@ class Acceso(db.Model):
     editor_acceso = db.relationship(
         'Acceso',
         remote_side=[id_acceso],
-        foreign_keys=[editado_por_acceso],
+        foreign_keys=[editado_por],
         backref='accesos_editando'
     )
 
@@ -231,7 +230,6 @@ class Acceso(db.Model):
             'area_id': self.area_id,
             'area': self.area.nombre_area if self.area else None,
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
-            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
 
@@ -240,9 +238,9 @@ class Acceso(db.Model):
 
         # ✅ INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version_acceso  # Nota: usa version_acceso, no version
-            data['editado_por'] = self.editado_por_acceso
-            data['editado_desde'] = self.editado_desde_acceso.isoformat() if self.editado_desde_acceso else None
+            data['version'] = self.version  # Nota: usa version
+            data['editado_por'] = self.editado_por
+            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
             data['nombre_editor'] = self.editor_acceso.nombre_usuario if self.editor_acceso else None
 
         return data
@@ -293,9 +291,8 @@ class EquipoComputo(db.Model):
     modelo = db.Column(db.String(50))
     numero_serie = db.Column(db.String(50), unique=True)
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    fecha_registro = db.Column(db.Date, default=datetime.now().date)
     observaciones = db.Column(db.Text)
-    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'))
+    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
@@ -325,7 +322,6 @@ class EquipoComputo(db.Model):
             'estado_id': self.estado_id,
             'estado': self.estado.nombre_estado if self.estado else None,
             'color_estado': self.estado.color_hex if self.estado else None,
-            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
             'observaciones': self.observaciones,
             'usuario_asignado_id': self.usuario_asignado_id,
             'responsable': self.usuario_asignado.nombre_usuario if self.usuario_asignado else None,
@@ -377,8 +373,7 @@ class Mobiliario(db.Model):
     caracteristicas = db.Column(db.Text)
     observaciones = db.Column(db.Text)
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'))
-    fecha_asignacion = db.Column(db.Date)
+    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
@@ -411,7 +406,6 @@ class Mobiliario(db.Model):
             'color_estado': self.estado.color_hex if self.estado else None,
             'usuario_asignado_id': self.usuario_asignado_id,
             'responsable': self.usuario_asignado.nombre_usuario if self.usuario_asignado else None,
-            'fecha_asignacion': self.fecha_asignacion.isoformat() if self.fecha_asignacion else None,
             'sucursal_nombre': self.sucursal_nombre,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
@@ -445,16 +439,13 @@ class VistaEquiposCompleta(db.Model):
     numero_serie = db.Column(db.String(50))
     estado = db.Column(db.String(20))
     color_estado = db.Column(db.String(7))
-    fecha_registro = db.Column(db.Date)
     observaciones = db.Column(db.Text)
     sucursal = db.Column(db.String(50))
     responsable = db.Column(db.String(100))
     numero_nomina = db.Column(db.String(10))
     puesto = db.Column(db.String(80))
     area = db.Column(db.String(50))
-    creado_por = db.Column(db.String(100))
     fecha_creacion = db.Column(db.DateTime)
-    modificado_por = db.Column(db.String(100))
     fecha_modificacion = db.Column(db.DateTime)
     especificaciones = db.Column(db.Text)
 
@@ -468,16 +459,13 @@ class VistaEquiposCompleta(db.Model):
             'numero_serie': self.numero_serie,
             'estado': self.estado,
             'color_estado': self.color_estado,
-            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
             'observaciones': self.observaciones,
             'sucursal': self.sucursal,
             'responsable': self.responsable,
             'numero_nomina': self.numero_nomina,
             'puesto': self.puesto,
             'area': self.area,
-            'creado_por': self.creado_por,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'modificado_por': self.modificado_por,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None,
             'especificaciones': self.especificaciones
         }
@@ -500,15 +488,12 @@ class VistaMobiliarioCompleta(db.Model):
     observaciones = db.Column(db.Text)
     estado = db.Column(db.String(20))
     color_estado = db.Column(db.String(7))
-    fecha_asignacion = db.Column(db.Date)
     sucursal = db.Column(db.String(50))
     responsable = db.Column(db.String(100))
     numero_nomina = db.Column(db.String(10))
     puesto = db.Column(db.String(80))
     area = db.Column(db.String(50))
-    creado_por = db.Column(db.String(100))
     fecha_creacion = db.Column(db.DateTime)
-    modificado_por = db.Column(db.String(100))
     fecha_modificacion = db.Column(db.DateTime)
 
     def to_dict(self):
@@ -522,15 +507,12 @@ class VistaMobiliarioCompleta(db.Model):
             'observaciones': self.observaciones,
             'estado': self.estado,
             'color_estado': self.color_estado,
-            'fecha_asignacion': self.fecha_asignacion.isoformat() if self.fecha_asignacion else None,
             'sucursal': self.sucursal,
             'responsable': self.responsable,
             'numero_nomina': self.numero_nomina,
             'puesto': self.puesto,
             'area': self.area,
-            'creado_por': self.creado_por,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'modificado_por': self.modificado_por,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
 
@@ -578,7 +560,6 @@ class VistaAccesosCompleta(db.Model):
     nombre_usuario = db.Column(db.String(100))
     correo_electronico = db.Column(db.String(100))
     area = db.Column(db.String(50))
-    fecha_registro = db.Column(db.Date)
     fecha_creacion = db.Column(db.DateTime)
     ultimo_acceso = db.Column(db.DateTime)
 
@@ -591,7 +572,6 @@ class VistaAccesosCompleta(db.Model):
             'nombre_usuario': self.nombre_usuario,
             'correo_electronico': self.correo_electronico,
             'area': self.area,
-            'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
             'permisos': self.permisos

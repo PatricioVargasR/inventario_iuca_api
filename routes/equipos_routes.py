@@ -53,7 +53,7 @@ def create_equipo():
             numero_serie=data.get('numero_serie'),
             estado_id=data['estado_id'],
             observaciones=data.get('observaciones'),
-            usuario_asignado_id=data.get('usuario_asignado_id'),
+            usuario_asignado_id=data.get('usuario_asignado_id') or None,
             sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo'),
             creado_por=user_id,
             modificado_por=user_id,
@@ -135,7 +135,7 @@ def update_equipo(id):
         if 'observaciones' in data:
             equipo.observaciones = data['observaciones']
         if 'usuario_asignado_id' in data:
-            equipo.usuario_asignado_id = data['usuario_asignado_id']
+            equipo.usuario_asignado_id = data['usuario_asignado_id'] or None
         if 'sucursal_nombre' in data:
             equipo.sucursal_nombre = data['sucursal_nombre']
 

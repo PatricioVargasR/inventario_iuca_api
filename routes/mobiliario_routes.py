@@ -82,7 +82,6 @@ def create_mobiliario():
             observaciones=data.get('observaciones'),
             estado_id=data['estado_id'],
             usuario_asignado_id=data.get('usuario_asignado_id'),
-            fecha_asignacion=data.get('fecha_asignacion'),
             sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo'),
             creado_por=user_id,
             modificado_por=user_id,
@@ -145,9 +144,7 @@ def update_mobiliario(id):
         if 'estado_id' in data:
             mueble.estado_id = data['estado_id']
         if 'usuario_asignado_id' in data:
-            mueble.usuario_asignado_id = data['usuario_asignado_id']
-        if 'fecha_asignacion' in data:
-            mueble.fecha_asignacion = data['fecha_asignacion']
+            mueble.usuario_asignado_id = data['usuario_asignado_id'] or None
         if 'sucursal_nombre' in data:
             mueble.sucursal_nombre = data['sucursal_nombre']
 

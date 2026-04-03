@@ -165,10 +165,7 @@ def verificar_version(modelo, registro_id, version_esperada):
     Verifica que la versión del registro coincida con la esperada
     Retorna (es_valida: bool, version_actual: int)
     """
-    if modelo.__tablename__ == 'acceso':
-        version_field = 'version_acceso'
-    else:
-        version_field = 'version'
+    version_field = 'version'
 
     registro = modelo.query.get(registro_id)
 

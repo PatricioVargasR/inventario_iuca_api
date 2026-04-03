@@ -238,8 +238,8 @@ def create_acceso():
             correo_electronico=data['correo_electronico'],
             contrasena_hash=password_hash.decode('utf-8'),
             area_id=data.get('area_id'),
-            version_acceso=1,
-            editado_por_acceso=user_id
+            version=1,
+            editado_por=user_id
         )
 
         db.session.add(acceso)
@@ -292,7 +292,7 @@ def update_acceso(id):
     data = request.get_json()
     version_cliente = data.get('version')
 
-    # VERIFICACIÓN DE VERSIÓN (usa version_acceso, no version)
+    # VERIFICACIÓN DE VERSIÓN (usa  version)
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Acceso, id, version_cliente)
 
@@ -329,8 +329,6 @@ def update_acceso(id):
             for modulo in MODULOS_DISPONIBLES:
                 p_modulo = permisos_data.get(modulo, {})
                 permiso: Permiso = Permiso.query.filter_by(acceso_id=id, modulo=modulo).first()
-
-                print(p_modulo.get('puede_eliminar'))
 
                 if permiso:
                     # Actualizar existente
