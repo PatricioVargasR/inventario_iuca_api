@@ -4,6 +4,7 @@ from app import db
 from models import BloqueoActivo, Usuario, Acceso, Permiso
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
+from utils.validators import validate_responsable, validate_acceso, ValidationError, handle_db_error
 import bcrypt
 
 usuarios_bp = Blueprint('usuarios', __name__)
@@ -16,6 +17,7 @@ MODULOS_DISPONIBLES = ['computo', 'mobiliario', 'responsable', 'catalogos', 'his
 
 @usuarios_bp.route('/responsables', methods=['GET'])
 @jwt_required()
+@require_permission('responsable', 'puede_leer')
 def get_responsables():
     """Listar usuarios responsables"""
     usuarios = Usuario.query.all()
@@ -23,7 +25,7 @@ def get_responsables():
 
 
 @usuarios_bp.route('/responsable/<int:id>', methods=['GET'])
-@jwt_required()
+@jwt_required('responsable', 'puede_leer')
 def get_responsable(id):
     """Obtener usuario responsable por ID"""
     usuario = Usuario.query.get(id)
@@ -39,21 +41,30 @@ def create_responsable():
     user_id = get_jwt_identity()
     data = request.get_json()
 
-    if not data.get('nombre_usuario'):
-        return jsonify({'error': 'Nombre es requerido'}), 400
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_responsable(data, is_update=False)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
 
     # Verificar nómina única
     if data.get('numero_nomina'):
         existe = Usuario.query.filter_by(numero_nomina=data['numero_nomina']).first()
         if existe:
-            return jsonify({'error': 'Número de nómina ya existe'}), 400
+            return jsonify({
+                'error': 'El número de nómina ya está registrado',
+                'campos': {'numero_nomina': 'Este número de nómina ya existe'}
+            }), 409
 
     try:
         usuario = Usuario(
-            numero_nomina=data.get('numero_nomina'),
-            nombre_usuario=data['nombre_usuario'],
-            puesto=data.get('puesto'),
-            area_id=data.get('area_id'),
+            numero_nomina=data.get('numero_nomina') or None,
+            nombre_usuario=data['nombre_usuario'].strip(),
+            puesto=data.get('puesto', '').strip() or None,
+            area_id=data.get('area_id') or None,
             version=1,
             editado_por=user_id
         )
@@ -62,19 +73,21 @@ def create_responsable():
         db.session.commit()
 
         return jsonify({
-            'mensaje': 'Usuario responsable creado',
+            'mensaje': 'Responsable creado exitosamente',
             'usuario': usuario.to_dict()
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
+
 
 @usuarios_bp.route('/responsables/<int:id>', methods=['PUT'])
 @jwt_required()
 @require_permission('responsable', 'puede_actualizar')
 def update_responsable(id):
-    """Actualizar uaurio responsable"""
+    """Actualizar usuario responsable"""
     user_id = get_jwt_identity()
     usuario = Usuario.query.get(id)
 
@@ -82,12 +95,20 @@ def update_responsable(id):
         return jsonify({'error': 'Usuario no encontrado'}), 404
 
     data = request.get_json()
-    version_cliente = data.get('version')
 
-    # VERIFICACIÓN DE VERSIÓN
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_responsable(data, is_update=True)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
+
+    # ── Control de versiones ─────────────────────────────────────
+    version_cliente = data.get('version')
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Usuario, id, version_cliente)
-
         if not es_valida:
             return jsonify({
                 'error': 'conflict',
@@ -96,44 +117,53 @@ def update_responsable(id):
                 'datos_actuales': usuario.to_dict(include_version=True)
             }), 409
 
+    # Verificar nómina única si cambió
     if data.get('numero_nomina') and data['numero_nomina'] != usuario.numero_nomina:
-        if Usuario.query.filter_by(numero_nomina=data['numero_nomina']).first():
+        existe = Usuario.query.filter_by(numero_nomina=data['numero_nomina']).first()
+        if existe:
             return jsonify({
-                'error': 'Número de nómina ya existe'
-            }), 400
+                'error': 'El número de nómina ya está registrado',
+                'campos': {'numero_nomina': 'Este número de nómina ya existe'}
+            }), 409
 
     try:
-        for campo in ['nombre_usuario','numero_nomina', 'puesto', 'area_id']:
+        campo_map = {
+            'nombre_usuario': lambda v: setattr(usuario, 'nombre_usuario', v.strip()),
+            'numero_nomina':  lambda v: setattr(usuario, 'numero_nomina', v or None),
+            'puesto':         lambda v: setattr(usuario, 'puesto', v.strip() or None),
+            'area_id':        lambda v: setattr(usuario, 'area_id', v or None),
+        }
+
+        for campo, setter in campo_map.items():
             if campo in data:
-                setattr(usuario, campo, data[campo])
+                setter(data[campo])
+
         db.session.commit()
 
         # Liberar bloqueo
         liberar_bloqueo('usuario', id, int(user_id))
 
         return jsonify({
-            'mensaje': 'usuario actualizado',
+            'mensaje': 'Responsable actualizado exitosamente',
             'usuario': usuario.to_dict()
         }), 200
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'error': str(e)
-        }), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
 
 
 @usuarios_bp.route('/responsables/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('responsable', 'puede_eliminar')
 def delete_responsable(id):
-    """ELiminar el usuario responsable"""
+    """Eliminar el usuario responsable"""
     user_id = get_jwt_identity()
 
     usuario = Usuario.query.get(id)
     if not usuario:
-        return jsonify({
-            'error': 'Usuario no encontrado'
-        }), 404
+        return jsonify({'error': 'Usuario no encontrado'}), 404
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
@@ -144,36 +174,36 @@ def delete_responsable(id):
     ).first()
 
     if not bloqueo:
-            bloqueo_existente = BloqueoActivo.query.filter_by(
-                tabla='usuario',
-                registro_id=id
-            ).first()
+        bloqueo_existente = BloqueoActivo.query.filter_by(
+            tabla='usuario',
+            registro_id=id
+        ).first()
 
-            if bloqueo_existente:
-                accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-                return jsonify({
-                    'error': 'locked_by_other',
-                    'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                    'bloqueo': bloqueo_existente.to_dict()
-                }), 409
-            else:
-                return jsonify({
-                    'error': 'no_lock',
-                    'mensaje': 'Debe adquirir bloqueo antes de eliminar'
-                }), 403
+        if bloqueo_existente:
+            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
+            return jsonify({
+                'error': 'locked_by_other',
+                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
+                'bloqueo': bloqueo_existente.to_dict()
+            }), 409
+        else:
+            return jsonify({
+                'error': 'no_lock',
+                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
+            }), 403
 
     try:
         db.session.delete(usuario)
+        db.session.delete(bloqueo)
         db.session.commit()
 
-        return jsonify({
-            'mensaje': 'Usuario eliminado'
-        }), 200
+        return jsonify({'mensaje': 'Responsable eliminado exitosamente'}), 200
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'error': str(e)
-        }), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
+
 
 # ============================================
 # ACCESOS (cuentas del sistema con permisos)
@@ -183,7 +213,7 @@ def delete_responsable(id):
 @jwt_required()
 @require_permission('acceso', 'puede_leer')
 def get_accesos():
-    """Listar cuentas de acceso con sus permisos """
+    """Listar cuentas de acceso con sus permisos"""
     accesos = Acceso.query.all()
     resultado = []
 
@@ -202,14 +232,13 @@ def get_acceso(id):
     acceso = Acceso.query.get(id)
 
     if not acceso:
-        return jsonify({
-            'error': 'Acceso no encontrado'
-        }), 404
+        return jsonify({'error': 'Acceso no encontrado'}), 404
 
     datos = acceso.to_dict()
     datos['permisos'] = acceso.permisos_dict()
 
     return jsonify(datos), 200
+
 
 @usuarios_bp.route('/accesos', methods=['POST'])
 @jwt_required()
@@ -219,23 +248,29 @@ def create_acceso():
     user_id = get_jwt_identity()
     data = request.get_json()
 
-    required = ['nombre_usuario', 'correo_electronico', 'password']
-    for field in required:
-        if field not in data:
-            return jsonify({'error': f'{field} es requerido'}), 400
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_acceso(data, is_update=False)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
 
     # Verificar correo único
     existe = Acceso.query.filter_by(correo_electronico=data['correo_electronico']).first()
     if existe:
-        return jsonify({'error': 'El correo ya está registrado'}), 400
+        return jsonify({
+            'error': 'El correo ya está registrado',
+            'campos': {'correo_electronico': 'Este correo ya existe'}
+        }), 409
 
     try:
-        # Hash de contraseña
         password_hash = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
 
         acceso = Acceso(
-            nombre_usuario=data['nombre_usuario'],
-            correo_electronico=data['correo_electronico'],
+            nombre_usuario=data['nombre_usuario'].strip(),
+            correo_electronico=data['correo_electronico'].strip(),
             contrasena_hash=password_hash.decode('utf-8'),
             area_id=data.get('area_id'),
             version=1,
@@ -245,18 +280,17 @@ def create_acceso():
         db.session.add(acceso)
         db.session.flush()
 
-        # Crear permisos directamente por módulo
         permisos_data = data.get('permisos', {})
 
         for indice, modulo in enumerate(MODULOS_DISPONIBLES):
             p_modulo = permisos_data[indice]
             permiso = Permiso(
-                acceso_id = acceso.id_acceso,
-                modulo = modulo,
-                puede_leer = p_modulo.get('puede_leer', False),
-                puede_crear = p_modulo.get('puede_crear', False),
-                puede_actualizar = p_modulo.get('puede_actualizar', False),
-                puede_eliminar = p_modulo.get('puede_eliminar', False),
+                acceso_id=acceso.id_acceso,
+                modulo=modulo,
+                puede_leer=p_modulo.get('puede_leer', False),
+                puede_crear=p_modulo.get('puede_crear', False),
+                puede_actualizar=p_modulo.get('puede_actualizar', False),
+                puede_eliminar=p_modulo.get('puede_eliminar', False),
             )
             db.session.add(permiso)
 
@@ -272,9 +306,8 @@ def create_acceso():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'error': str(e)
-        }), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
 
 @usuarios_bp.route('/accesos/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -285,17 +318,23 @@ def update_acceso(id):
     acceso = Acceso.query.get(id)
 
     if not acceso:
-        return jsonify({
-            'error': 'Acceso no encontrado'
-        }), 404
+        return jsonify({'error': 'Acceso no encontrado'}), 404
 
     data = request.get_json()
-    version_cliente = data.get('version')
 
-    # VERIFICACIÓN DE VERSIÓN (usa  version)
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_acceso(data, is_update=True)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
+
+    # ── Control de versiones ─────────────────────────────────────
+    version_cliente = data.get('version')
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Acceso, id, version_cliente)
-
         if not es_valida:
             return jsonify({
                 'error': 'conflict',
@@ -305,7 +344,6 @@ def update_acceso(id):
             }), 409
 
     try:
-        # Actualiar datos básicos
         for campo in ['nombre_usuario', 'area_id']:
             if campo in data:
                 setattr(acceso, campo, data[campo])
@@ -313,43 +351,40 @@ def update_acceso(id):
         if 'correo_electronico' in data and data['correo_electronico'] != acceso.correo_electronico:
             if Acceso.query.filter_by(correo_electronico=data['correo_electronico']).first():
                 return jsonify({
-                    'error': 'El correo ya está registrado'
-                }), 400
-
+                    'error': 'El correo ya está registrado',
+                    'campos': {'correo_electronico': 'Este correo ya existe'}
+                }), 409
             acceso.correo_electronico = data['correo_electronico']
 
-            if 'password' in data and data['password']:
-                acceso.contrasena_hash = bcrypt.hashpw(
-                    data['password'].encode('utf-8'), bcrypt.gensalt()
-                ).decode('utf-8')
+        if 'password' in data and data['password']:
+            acceso.contrasena_hash = bcrypt.hashpw(
+                data['password'].encode('utf-8'), bcrypt.gensalt()
+            ).decode('utf-8')
 
-        # Actualizar permisos si se enviaron
         if 'permisos' in data:
             permisos_data = data['permisos']
             for modulo in MODULOS_DISPONIBLES:
                 p_modulo = permisos_data.get(modulo, {})
-                permiso: Permiso = Permiso.query.filter_by(acceso_id=id, modulo=modulo).first()
+                permiso = Permiso.query.filter_by(acceso_id=id, modulo=modulo).first()
 
                 if permiso:
-                    # Actualizar existente
                     permiso.puede_leer = p_modulo.get('puede_leer', permiso.puede_leer)
                     permiso.puede_crear = p_modulo.get('puede_crear', permiso.puede_crear)
                     permiso.puede_actualizar = p_modulo.get('puede_actualizar', permiso.puede_actualizar)
                     permiso.puede_eliminar = p_modulo.get('puede_eliminar', permiso.puede_eliminar)
-
                 elif p_modulo:
-                    # Crear si no existía y se enviaron datos
                     nuevo = Permiso(
-                        acceso_id = id,
+                        acceso_id=id,
                         modulo=modulo,
-                        puede_leer = p_modulo.get('puede_leer', False),
-                        puede_crear = p_modulo.get('puede_crear', False),
-                        puede_actualizar = p_modulo.get('puede_actualizar', False),
-                        puede_eliminar = p_modulo.get('puede_eliminar', False)
+                        puede_leer=p_modulo.get('puede_leer', False),
+                        puede_crear=p_modulo.get('puede_crear', False),
+                        puede_actualizar=p_modulo.get('puede_actualizar', False),
+                        puede_eliminar=p_modulo.get('puede_eliminar', False)
                     )
                     db.session.add(nuevo)
 
         db.session.commit()
+
         resultado = acceso.to_dict()
         resultado['permisos'] = acceso.permisos_dict()
 
@@ -357,15 +392,15 @@ def update_acceso(id):
         liberar_bloqueo('acceso', id, int(user_id))
 
         return jsonify({
-            'mensaje': 'Acceso actualizado',
+            'mensaje': 'Acceso actualizado exitosamente',
             'acceso': resultado
-        }),200
+        }), 200
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'error': str(e)
-        }), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
+
 
 @usuarios_bp.route('/accesos/<int:id>', methods=['DELETE'])
 @jwt_required()
@@ -374,16 +409,12 @@ def delete_acceso(id):
     """Eliminar cuenta de acceso (elimina permisos en cascada)"""
     user_id = get_jwt_identity()
 
-    # No permitir auto-eliminación
     if int(user_id) == id:
         return jsonify({'error': 'No puedes eliminar tu propio acceso'}), 400
 
     acceso = Acceso.query.get(id)
-
     if not acceso:
-        return jsonify({
-            'error': 'Acceso no encontrado'
-        }), 404
+        return jsonify({'error': 'Acceso no encontrado'}), 404
 
     # VERIFICAR BLOQUEO
     bloqueo = BloqueoActivo.query.filter_by(
@@ -415,11 +446,9 @@ def delete_acceso(id):
     try:
         db.session.delete(acceso)
         db.session.commit()
-        return jsonify({
-            'mensaje': 'Acceso eliminado'
-        }), 200
+        return jsonify({'mensaje': 'Acceso eliminado exitosamente'}), 200
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'error': str(e)
-        }), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code

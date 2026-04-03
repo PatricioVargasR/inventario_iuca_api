@@ -4,6 +4,7 @@ from app import db
 from models import BloqueoActivo, Mobiliario
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
+from utils.validators import validate_mobiliario, ValidationError, handle_db_error
 
 mobiliario_bp = Blueprint('mobiliario', __name__)
 
@@ -67,22 +68,26 @@ def create_mobiliario():
     user_id = get_jwt_identity()
     data = request.get_json()
 
-    required_fields = ['tipo_mobiliario_id', 'estado_id']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'Campo {field} es requerido'}), 400
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_mobiliario(data, is_update=False)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
 
     try:
         mueble = Mobiliario(
             tipo_mobiliario_id=data['tipo_mobiliario_id'],
-            marca=data.get('marca'),
-            modelo=data.get('modelo'),
-            color=data.get('color'),
-            caracteristicas=data.get('caracteristicas'),
-            observaciones=data.get('observaciones'),
+            marca=data.get('marca', '').strip() or None,
+            modelo=data.get('modelo', '').strip() or None,
+            color=data.get('color', '').strip() or None,
+            caracteristicas=data.get('caracteristicas', '').strip() or None,
+            observaciones=data.get('observaciones', '').strip() or None,
             estado_id=data['estado_id'],
-            usuario_asignado_id=data.get('usuario_asignado_id'),
-            sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo'),
+            usuario_asignado_id=data.get('usuario_asignado_id') or None,
+            sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo').strip(),
             creado_por=user_id,
             modificado_por=user_id,
             version=1
@@ -98,7 +103,8 @@ def create_mobiliario():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
 
 
 @mobiliario_bp.route('/<int:id>', methods=['PUT'])
@@ -113,12 +119,20 @@ def update_mobiliario(id):
         return jsonify({'error': 'Mueble no encontrado'}), 404
 
     data = request.get_json()
-    version_cliente = data.get('version')
 
-    # VERIFICACIÓN DE VERSIÓN
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+
+    # ── Validación de esquema ────────────────────────────────────
+    try:
+        validate_mobiliario(data, is_update=True)
+    except ValidationError as e:
+        return jsonify({'error': e.message, 'campos': e.fields}), 422
+
+    # ── Control de versiones ─────────────────────────────────────
+    version_cliente = data.get('version')
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Mobiliario, id, version_cliente)
-
         if not es_valida:
             return jsonify({
                 'error': 'conflict',
@@ -128,25 +142,21 @@ def update_mobiliario(id):
             }), 409
 
     try:
-        # Actualizar campos
-        if 'tipo_mobiliario_id' in data:
-            mueble.tipo_mobiliario_id = data['tipo_mobiliario_id']
-        if 'marca' in data:
-            mueble.marca = data['marca']
-        if 'modelo' in data:
-            mueble.modelo = data['modelo']
-        if 'color' in data:
-            mueble.color = data['color']
-        if 'caracteristicas' in data:
-            mueble.caracteristicas = data['caracteristicas']
-        if 'observaciones' in data:
-            mueble.observaciones = data['observaciones']
-        if 'estado_id' in data:
-            mueble.estado_id = data['estado_id']
-        if 'usuario_asignado_id' in data:
-            mueble.usuario_asignado_id = data['usuario_asignado_id'] or None
-        if 'sucursal_nombre' in data:
-            mueble.sucursal_nombre = data['sucursal_nombre']
+        campo_map = {
+            'tipo_mobiliario_id':  lambda v: setattr(mueble, 'tipo_mobiliario_id', v),
+            'marca':               lambda v: setattr(mueble, 'marca', v.strip() or None),
+            'modelo':              lambda v: setattr(mueble, 'modelo', v.strip() or None),
+            'color':               lambda v: setattr(mueble, 'color', v.strip() or None),
+            'caracteristicas':     lambda v: setattr(mueble, 'caracteristicas', v.strip() or None),
+            'observaciones':       lambda v: setattr(mueble, 'observaciones', v.strip() or None),
+            'estado_id':           lambda v: setattr(mueble, 'estado_id', v),
+            'usuario_asignado_id': lambda v: setattr(mueble, 'usuario_asignado_id', v or None),
+            'sucursal_nombre':     lambda v: setattr(mueble, 'sucursal_nombre', v.strip()),
+        }
+
+        for campo, setter in campo_map.items():
+            if campo in data:
+                setter(data[campo])
 
         mueble.modificado_por = user_id
 
@@ -162,7 +172,8 @@ def update_mobiliario(id):
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
 
 
 @mobiliario_bp.route('/<int:id>', methods=['DELETE'])
@@ -212,4 +223,5 @@ def delete_mobiliario(id):
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        message, code = handle_db_error(e)
+        return jsonify({'error': message}), code
