@@ -16,21 +16,38 @@ def get_client_ip():
         return request.headers.get('X-Real-IP')
     return request.remote_addr
 
+def get_client_fingerprint():
+    """
+    Combina IP + User-Agent para identificar de forma más precisa
+    al dispositivo que está haciendo la petición.
+    """
+    ip = get_client_ip()
+    user_agent = request.headers.get('User-Agent', '')
+    return ip, user_agent
 
-def _crear_sesion(usuario, client_ip):
-    """Crea un nuevo token de sesión y actualiza el usuario. Retorna el token."""
+def _es_mismo_dispositivo(usuario, client_ip, client_ua):
+    """
+    Determina si la petición viene del mismo dispositivo que tiene
+    la sesión activa, comparando IP y User-Agent.
+    """
+    misma_ip = usuario.ip_sesion == client_ip
+    mismo_ua = usuario.user_agent_sesion == client_ua
+    return misma_ip and mismo_ua
+
+def _crear_sesion(usuario, client_ip, client_ua):
+    """Crea un nuevo token de sesión y actualiza el usuario."""
     access_token = create_access_token(identity=str(usuario.id_acceso))
     usuario.token_sesion_activa = access_token
     usuario.fecha_inicio_sesion = datetime.now()
     usuario.ultimo_acceso = datetime.now()
     usuario.ip_sesion = client_ip
+    usuario.user_agent_sesion = client_ua  # <-- campo nuevo
     db.session.commit()
     return access_token
 
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    """Inicio de sesión con control de sesión única basado en IP"""
     data = request.get_json()
     correo = data.get('correo_electronico')
     password = data.get('password')
@@ -38,19 +55,20 @@ def login():
     if not correo or not password:
         return jsonify({'error': 'Correo y contraseña son requeridos'}), 400
 
-    usuario: Acceso = Acceso.query.filter_by(correo_electronico=correo).first()
+    usuario = Acceso.query.filter_by(correo_electronico=correo).first()
     if not usuario:
         return jsonify({'error': 'Correo electrónico no encontrado'}), 401
 
     if not bcrypt.checkpw(password.encode('utf-8'), usuario.contrasena_hash.encode('utf-8')):
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
-    client_ip = get_client_ip()
+    client_ip, client_ua = get_client_fingerprint()
 
-    # VERIFICAR SI YA HAY UNA SESIÓN ACTIVA
     if usuario.token_sesion_activa:
-        # Caso 1: Misma IP → avisar al frontend para que el usuario confirme
-        if usuario.ip_sesion == client_ip:
+        mismo_dispositivo = _es_mismo_dispositivo(usuario, client_ip, client_ua)
+
+        if mismo_dispositivo:
+            # Caso 2: misma computadora → permitir force-login
             return jsonify({
                 'error': 'session_active_same_ip',
                 'mensaje': 'Ya tienes una sesión abierta en este dispositivo',
@@ -59,20 +77,18 @@ def login():
                     'fecha_inicio': usuario.fecha_inicio_sesion.isoformat() if usuario.fecha_inicio_sesion else None
                 }
             }), 409
-
-        # Caso 2: IP diferente → bloquear, el usuario debe cerrar sesión en el otro dispositivo
         else:
+            # Caso 1 y 3: diferente dispositivo (misma red o diferente red) → bloquear
             return jsonify({
                 'error': 'session_active_different_ip',
-                'mensaje': 'Ya existe una sesión activa desde otra ubicación',
+                'mensaje': 'Ya existe una sesión activa desde otro dispositivo',
                 'sesion_info': {
                     'ip': usuario.ip_sesion,
                     'fecha_inicio': usuario.fecha_inicio_sesion.isoformat() if usuario.fecha_inicio_sesion else None
                 }
             }), 409
 
-    # Sin sesión activa → crear sesión normalmente
-    access_token = _crear_sesion(usuario, client_ip)
+    access_token = _crear_sesion(usuario, client_ip, client_ua)
 
     return jsonify({
         'token': access_token,
@@ -88,8 +104,8 @@ def login():
 @auth_bp.route('/force-login', methods=['POST'])
 def force_login():
     """
-    Forzar inicio de sesión cerrando la sesión activa previa en el mismo dispositivo.
-    Solo se permite cuando la IP coincide (misma red/dispositivo).
+    Solo se permite cuando es exactamente el mismo dispositivo
+    (misma IP + mismo User-Agent).
     """
     data = request.get_json()
     correo = data.get('correo_electronico')
@@ -98,28 +114,28 @@ def force_login():
     if not correo or not password:
         return jsonify({'error': 'Correo y contraseña son requeridos'}), 400
 
-    usuario: Acceso = Acceso.query.filter_by(correo_electronico=correo).first()
+    usuario = Acceso.query.filter_by(correo_electronico=correo).first()
     if not usuario:
         return jsonify({'error': 'Correo electrónico no encontrado'}), 401
 
     if not bcrypt.checkpw(password.encode('utf-8'), usuario.contrasena_hash.encode('utf-8')):
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
-    client_ip = get_client_ip()
+    client_ip, client_ua = get_client_fingerprint()
 
-    # Solo permitir force-login si la IP coincide con la sesión activa
-    if usuario.token_sesion_activa and usuario.ip_sesion != client_ip:
-        return jsonify({
-            'error': 'session_active_different_ip',
-            'mensaje': 'La sesión activa es de otro dispositivo. No puedes forzar el cierre desde aquí.',
-            'sesion_info': {
-                'ip': usuario.ip_sesion,
-                'fecha_inicio': usuario.fecha_inicio_sesion.isoformat() if usuario.fecha_inicio_sesion else None
-            }
-        }), 409
+    if usuario.token_sesion_activa:
+        mismo_dispositivo = _es_mismo_dispositivo(usuario, client_ip, client_ua)
+        if not mismo_dispositivo:
+            return jsonify({
+                'error': 'session_active_different_ip',
+                'mensaje': 'La sesión activa es de otro dispositivo. No puedes forzar el cierre desde aquí.',
+                'sesion_info': {
+                    'ip': usuario.ip_sesion,
+                    'fecha_inicio': usuario.fecha_inicio_sesion.isoformat() if usuario.fecha_inicio_sesion else None
+                }
+            }), 409
 
-    # Cerrar sesión anterior y crear nueva
-    access_token = _crear_sesion(usuario, client_ip)
+    access_token = _crear_sesion(usuario, client_ip, client_ua)
 
     return jsonify({
         'token': access_token,
@@ -146,7 +162,6 @@ def logout():
         db.session.commit()
 
     return jsonify({'mensaje': 'Sesión cerrada exitosamente'}), 200
-
 
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()

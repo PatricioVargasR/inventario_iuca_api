@@ -199,6 +199,7 @@ class Acceso(db.Model):
     token_sesion_activa = db.Column(db.String(500))  # Token JWT de la sesión activa
     fecha_inicio_sesion = db.Column(db.DateTime)     # Cuándo inició la sesión
     ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
+    user_agent_sesion = db.Column(db.String(500))
 
     # Nota: Se usa nombre diferente para evitar conflicto con otros modelos
     version = db.Column(db.Integer, default=1, nullable=False)
