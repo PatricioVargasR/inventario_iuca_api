@@ -61,6 +61,7 @@ def get_historial():
             'sesion_activa',
             'refresh_token',
             'ultimo_login',
+            'contrasena_hash'
         }
 
         # Query base — solo tablas visibles

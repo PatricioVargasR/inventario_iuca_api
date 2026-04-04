@@ -294,9 +294,7 @@ class EquipoComputo(db.Model):
     observaciones = db.Column(db.Text)
     usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
-    creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-    modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
     version = db.Column(db.Integer, default=1, nullable=False)
@@ -375,9 +373,7 @@ class Mobiliario(db.Model):
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
     usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
-    creado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-    modificado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
     version = db.Column(db.Integer, default=1, nullable=False)

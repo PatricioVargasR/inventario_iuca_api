@@ -62,8 +62,6 @@ def create_equipo():
             observaciones=data.get('observaciones', '').strip() or None,
             usuario_asignado_id=data.get('usuario_asignado_id') or None,
             sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo').strip(),
-            creado_por=user_id,
-            modificado_por=user_id,
             version=1
         )
 
@@ -153,8 +151,6 @@ def update_equipo(id):
         for campo, setter in campo_map.items():
             if campo in data:
                 setter(data[campo])
-
-        equipo.modificado_por = user_id
 
         # Actualizar especificaciones
         if 'especificaciones' in data:

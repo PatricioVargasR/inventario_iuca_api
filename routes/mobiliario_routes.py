@@ -88,8 +88,6 @@ def create_mobiliario():
             estado_id=data['estado_id'],
             usuario_asignado_id=data.get('usuario_asignado_id') or None,
             sucursal_nombre=data.get('sucursal_nombre', 'Tulancingo').strip(),
-            creado_por=user_id,
-            modificado_por=user_id,
             version=1
         )
 
@@ -158,7 +156,6 @@ def update_mobiliario(id):
             if campo in data:
                 setter(data[campo])
 
-        mueble.modificado_por = user_id
 
         db.session.commit()
 
