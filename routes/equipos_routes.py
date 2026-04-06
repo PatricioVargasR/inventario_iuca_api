@@ -8,6 +8,7 @@ from utils.concurrency import (
     verificar_version,
     liberar_bloqueo
 )
+from utils.lock_required import lock_required
 
 equipos_bp = Blueprint('equipos', __name__)
 
@@ -200,39 +201,13 @@ def update_equipo(id):
 
 @equipos_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
-def delete_equipo(id):
+@lock_required('equipos_computo')
+def delete_equipo(id, bloqueo):
     """Eliminar equipo con verificación de bloqueo."""
-    user_id = get_jwt_identity()
 
     equipo = EquipoComputo.query.get(id)
     if not equipo:
         return jsonify({'error': 'Equipo no encontrado'}), 404
-
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='equipos_computo',
-        registro_id=id,
-        usuario_id=user_id,
-        tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(
-            tabla='equipos_computo',
-            registro_id=id
-        ).first()
-
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        else:
-            return jsonify({
-                'error': 'no_lock',
-                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
-            }), 403
 
     try:
         db.session.delete(equipo)

@@ -49,28 +49,28 @@ def obtener_bloqueo(tabla, registro_id):
 def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minutos=10, tipo_bloqueo='edicion'):
     """
     Intenta crear un bloqueo para un registro.
-    
+
     Args:
         tipo_bloqueo: 'edicion' o 'eliminacion'
-    
+
     Returns:
         tuple: (success: bool, data: dict)
     """
     limpiar_bloqueos_expirados()
-    
+
     # Verificar si ya existe un bloqueo
     bloqueo_existente = BloqueoActivo.query.filter_by(
         tabla=tabla,
         registro_id=registro_id
     ).first()
-    
+
     if bloqueo_existente:
         # Si el bloqueo es del mismo usuario del mismo tipo, extender tiempo
         if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo == tipo_bloqueo:
             bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
-        
+
         # Si es del mismo usuario pero diferente tipo (ej: tenía edición y ahora quiere eliminar)
         if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo != tipo_bloqueo:
             # Actualizar tipo y tiempo
@@ -78,7 +78,7 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
             bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
-        
+
         # Si es de otro usuario, retornar error con info del tipo de bloqueo
         accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
         return False, {

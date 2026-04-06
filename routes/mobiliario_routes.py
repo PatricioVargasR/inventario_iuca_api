@@ -5,6 +5,7 @@ from models import BloqueoActivo, Mobiliario
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 from utils.validators import validate_mobiliario, ValidationError, handle_db_error
+from utils.lock_required import lock_required
 
 mobiliario_bp = Blueprint('mobiliario', __name__)
 
@@ -65,7 +66,6 @@ def get_mobiliario_by_id(id):
 @require_permission('mobiliario', 'puede_crear')
 def create_mobiliario():
     """Crear nuevo mobiliario"""
-    user_id = get_jwt_identity()
     data = request.get_json()
 
     if not data:
@@ -176,40 +176,13 @@ def update_mobiliario(id):
 @mobiliario_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('mobiliario', 'puede_eliminar')
-def delete_mobiliario(id):
+@lock_required('mobiliario')
+def delete_mobiliario(id, bloqueo):
     """Eliminar mobiliario con verificación de bloqueo"""
-    user_id = get_jwt_identity()
 
     mueble = Mobiliario.query.get(id)
     if not mueble:
         return jsonify({'error': 'Mueble no encontrado'}), 404
-
-    # VERIFICAR BLOQUEO DE ELIMINACIÓN
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='mobiliario',
-        registro_id=id,
-        usuario_id=user_id,
-        tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(
-            tabla='mobiliario',
-            registro_id=id
-        ).first()
-
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        else:
-            return jsonify({
-                'error': 'no_lock',
-                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
-            }), 403
 
     try:
         db.session.delete(mueble)

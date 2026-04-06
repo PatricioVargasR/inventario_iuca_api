@@ -12,6 +12,7 @@ from utils.validators import (
     ValidationError,
     handle_db_error,
 )
+from utils.lock_required import lock_required
 
 catalogos_bp = Blueprint('catalogos', __name__)
 
@@ -160,30 +161,15 @@ def update_area(id):
 @catalogos_bp.route('/areas/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('catalogos', 'puede_eliminar')
-def delete_area(id):
-    user_id = get_jwt_identity()
+@lock_required('cat_areas')
+def delete_area(id, bloqueo):
     area = CatArea.query.get(id)
     if not area:
         return jsonify({'error': 'Área no encontrada'}), 404
 
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='cat_areas', registro_id=id,
-        usuario_id=user_id, tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(tabla='cat_areas', registro_id=id).first()
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        return jsonify({'error': 'no_lock', 'mensaje': 'Debe adquirir bloqueo antes de eliminar'}), 403
-
     try:
         db.session.delete(area)
+        db.session.delete(bloqueo)
         db.session.commit()
         return jsonify({'mensaje': 'Área eliminada'}), 200
 
@@ -332,30 +318,15 @@ def update_tipo_activo(id):
 @catalogos_bp.route('/tipos-activo/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('catalogos', 'puede_eliminar')
-def delete_tipo_activo(id):
-    user_id = get_jwt_identity()
+@lock_required('cat_tipos_activo')
+def delete_tipo_activo(id, bloqueo):
     tipo = CatTipoActivo.query.get(id)
     if not tipo:
         return jsonify({'error': 'Tipo no encontrado'}), 404
 
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='cat_tipos_activo', registro_id=id,
-        usuario_id=user_id, tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(tabla='cat_tipos_activo', registro_id=id).first()
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        return jsonify({'error': 'no_lock', 'mensaje': 'Debe adquirir bloqueo antes de eliminar'}), 403
-
     try:
         db.session.delete(tipo)
+        db.session.delete(bloqueo)
         db.session.commit()
         return jsonify({'mensaje': 'Tipo eliminado'}), 200
 
@@ -506,30 +477,15 @@ def update_estado(id):
 @catalogos_bp.route('/estados/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('catalogos', 'puede_eliminar')
-def delete_estado(id):
-    user_id = get_jwt_identity()
+@lock_required('cat_estados')
+def delete_estado(id, bloqueo):
     estado = CatEstado.query.get(id)
     if not estado:
         return jsonify({'error': 'Estado no encontrado'}), 404
 
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='cat_estados', registro_id=id,
-        usuario_id=user_id, tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(tabla='cat_estados', registro_id=id).first()
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        return jsonify({'error': 'no_lock', 'mensaje': 'Debe adquirir bloqueo antes de eliminar'}), 403
-
     try:
         db.session.delete(estado)
+        db.session.delete(bloqueo)
         db.session.commit()
         return jsonify({'mensaje': 'Estado eliminado'}), 200
 
@@ -678,30 +634,15 @@ def update_tipo_mobiliario(id):
 @catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('catalogos', 'puede_eliminar')
-def delete_tipo_mobiliario(id):
-    user_id = get_jwt_identity()
+@lock_required('cat_tipos_mobiliario')
+def delete_tipo_mobiliario(id, bloqueo):
     tipo = CatTipoMobiliario.query.get(id)
     if not tipo:
         return jsonify({'error': 'Tipo no encontrado'}), 404
 
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='cat_tipos_mobiliario', registro_id=id,
-        usuario_id=user_id, tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(tabla='cat_tipos_mobiliario', registro_id=id).first()
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        return jsonify({'error': 'no_lock', 'mensaje': 'Debe adquirir bloqueo antes de eliminar'}), 403
-
     try:
         db.session.delete(tipo)
+        db.session.delete(bloqueo)
         db.session.commit()
         return jsonify({'mensaje': 'Tipo eliminado'}), 200
 

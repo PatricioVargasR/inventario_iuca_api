@@ -6,6 +6,7 @@ from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 from utils.validators import validate_responsable, validate_acceso, ValidationError, handle_db_error
 import bcrypt
+from utils.lock_required import lock_required
 
 usuarios_bp = Blueprint('usuarios', __name__)
 
@@ -158,40 +159,13 @@ def update_responsable(id):
 @usuarios_bp.route('/responsables/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('responsable', 'puede_eliminar')
-def delete_responsable(id):
+@lock_required('usuario')
+def delete_responsable(id, bloqueo):
     """Eliminar el usuario responsable"""
-    user_id = get_jwt_identity()
 
     usuario = Usuario.query.get(id)
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
-
-    # VERIFICAR BLOQUEO
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='usuario',
-        registro_id=id,
-        usuario_id=user_id,
-        tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(
-            tabla='usuario',
-            registro_id=id
-        ).first()
-
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        else:
-            return jsonify({
-                'error': 'no_lock',
-                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
-            }), 403
 
     try:
         db.session.delete(usuario)
@@ -406,7 +380,8 @@ def update_acceso(id):
 @usuarios_bp.route('/accesos/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('acceso', 'puede_eliminar')
-def delete_acceso(id):
+@lock_required('acceso')
+def delete_acceso(id, bloqueo):
     """Eliminar cuenta de acceso (elimina permisos en cascada)"""
     user_id = get_jwt_identity()
 
@@ -417,36 +392,11 @@ def delete_acceso(id):
     if not acceso:
         return jsonify({'error': 'Acceso no encontrado'}), 404
 
-    # VERIFICAR BLOQUEO
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla='acceso',
-        registro_id=id,
-        usuario_id=user_id,
-        tipo_bloqueo='eliminacion'
-    ).first()
-
-    if not bloqueo:
-        bloqueo_existente = BloqueoActivo.query.filter_by(
-            tabla='acceso',
-            registro_id=id
-        ).first()
-
-        if bloqueo_existente:
-            accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
-            return jsonify({
-                'error': 'locked_by_other',
-                'mensaje': f'{bloqueo_existente.nombre_usuario} está {accion} este registro',
-                'bloqueo': bloqueo_existente.to_dict()
-            }), 409
-        else:
-            return jsonify({
-                'error': 'no_lock',
-                'mensaje': 'Debe adquirir bloqueo antes de eliminar'
-            }), 403
-
     try:
         db.session.delete(acceso)
+        db.session.delete(bloqueo)
         db.session.commit()
+
         return jsonify({'mensaje': 'Acceso eliminado exitosamente'}), 200
 
     except Exception as e:
