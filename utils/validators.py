@@ -303,7 +303,7 @@ def validate_estado(data: dict, is_update: bool = False) -> dict:
     return data
 
 
-def validate_tipo_activo(data: dict, is_update: bool = False) -> dict:
+def validate_tipo(data: dict, is_update: bool = False) -> dict:
     errors = {}
 
     if not is_update and not data.get('nombre_tipo'):
@@ -317,23 +317,6 @@ def validate_tipo_activo(data: dict, is_update: bool = False) -> dict:
         _max_len(str(val), 30, 'nombre_tipo', 'Nombre del tipo')
 
     return data
-
-
-def validate_tipo_mobiliario(data: dict, is_update: bool = False) -> dict:
-    errors = {}
-
-    if not is_update and not data.get('nombre_tipo'):
-        errors['nombre_tipo'] = '"Nombre del tipo" es obligatorio'
-
-    if errors:
-        raise ValidationError('Hay campos obligatorios sin completar', errors)
-
-    val = data.get('nombre_tipo')
-    if val:
-        _max_len(str(val), 30, 'nombre_tipo', 'Nombre del tipo')
-
-    return data
-
 
 # ── Error handler de SQLAlchemy ──────────────────────────────────────────────
 

@@ -7,8 +7,7 @@ from utils.decorators import require_permission
 from utils.validators import (
     validate_area,
     validate_estado,
-    validate_tipo_activo,
-    validate_tipo_mobiliario,
+    validate_tipo,
 )
 
 catalogos_bp = Blueprint('catalogos', __name__)
@@ -21,10 +20,10 @@ _area   = crud_catalogo(CatArea,           validate_area,            'Área',   
 _estado = crud_catalogo(CatEstado,         validate_estado,          'Estado',             'cat_estados',
                         campo_busqueda='nombre_estado', clave_respuesta='estados',          campo_id='id_estado',          campo_orden=CatEstado.id_estado)
 
-_t_activo = crud_catalogo(CatTipoActivo,   validate_tipo_activo,     'Tipo de activo',     'cat_tipos_activo',
+_t_activo = crud_catalogo(CatTipoActivo,   validate_tipo,     'Tipo de activo',     'cat_tipos_activo',
                         campo_busqueda='nombre_tipo',   clave_respuesta='tipos_activo',     campo_id='id_tipo_activo',     campo_orden=CatTipoActivo.id_tipo_activo)
 
-_t_mob  = crud_catalogo(CatTipoMobiliario, validate_tipo_mobiliario, 'Tipo de mobiliario', 'cat_tipos_mobiliario',
+_t_mob  = crud_catalogo(CatTipoMobiliario, validate_tipo, 'Tipo de mobiliario', 'cat_tipos_mobiliario',
                         campo_busqueda='nombre_tipo',   clave_respuesta='tipos_mobiliario', campo_id='id_tipo_mobiliario', campo_orden=CatTipoMobiliario.id_tipo_mobiliario)
 
 # Desempaquetar — ahora son 6 funciones
