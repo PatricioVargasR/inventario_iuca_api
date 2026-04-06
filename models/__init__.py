@@ -1,12 +1,13 @@
 from app import db
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSON
+from models.mixins import VersionMixin
 
 # ============================================
 # CATÁLOGOS
 # ============================================
 
-class CatArea(db.Model):
+class CatArea(db.Model, VersionMixin):
     __tablename__ = 'cat_areas'
 
     id_area = db.Column(db.Integer, primary_key=True)
@@ -14,12 +15,6 @@ class CatArea(db.Model):
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
-    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='areas_editadas')
 
     def to_dict(self, include_version=True):
         data = {
@@ -30,17 +25,13 @@ class CatArea(db.Model):
             'fecha_creacion': self.fecha_creacion
         }
 
-        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
 
 
-class CatTipoActivo(db.Model):
+class CatTipoActivo(db.Model, VersionMixin):
     __tablename__ = 'cat_tipos_activo'
 
     id_tipo_activo = db.Column(db.Integer, primary_key=True)
@@ -48,12 +39,6 @@ class CatTipoActivo(db.Model):
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
-    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='tipos_activo_editados')
 
     def to_dict(self, include_version=True):
         data =  {
@@ -66,15 +51,12 @@ class CatTipoActivo(db.Model):
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
 
 
-class CatEstado(db.Model):
+class CatEstado(db.Model, VersionMixin):
     __tablename__ = 'cat_estados'
 
     id_estado = db.Column(db.Integer, primary_key=True)
@@ -83,12 +65,6 @@ class CatEstado(db.Model):
     descripcion = db.Column(db.Text)
     color_hex = db.Column(db.String(7))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
-    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='estados_editados')
 
     def to_dict(self, include_version=True):
         data = {
@@ -102,14 +78,11 @@ class CatEstado(db.Model):
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
 
-class CatTipoMobiliario(db.Model):
+class CatTipoMobiliario(db.Model, VersionMixin):
     __tablename__ = 'cat_tipos_mobiliario'
 
     id_tipo_mobiliario = db.Column(db.Integer, primary_key=True)
@@ -117,12 +90,6 @@ class CatTipoMobiliario(db.Model):
     activo = db.Column(db.Boolean, nullable=False)
     descripcion = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
-    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='tipos_mobiliario_editados')
 
     def to_dict(self, include_version=True):
         data = {
@@ -136,10 +103,7 @@ class CatTipoMobiliario(db.Model):
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
 
@@ -147,7 +111,7 @@ class CatTipoMobiliario(db.Model):
 # USUARIOS Y ACCESOS
 # ============================================
 
-class Usuario(db.Model):
+class Usuario(db.Model, VersionMixin):
     __tablename__ = 'usuario'
 
     id_usuario = db.Column(db.Integer, primary_key=True)
@@ -157,13 +121,8 @@ class Usuario(db.Model):
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
     # Relaciones
     area = db.relationship('CatArea', backref='usuarios')
-    editor = db.relationship('Acceso', foreign_keys=[editado_por], backref='usuarios_editando')
 
     def to_dict(self, include_version=True):
         data = {
@@ -178,13 +137,11 @@ class Usuario(db.Model):
 
         # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
-class Acceso(db.Model):
+
+class Acceso(db.Model, VersionMixin):
     __tablename__ = 'acceso'
 
     id_acceso = db.Column(db.Integer, primary_key=True)
@@ -201,11 +158,6 @@ class Acceso(db.Model):
     ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
     user_agent_sesion = db.Column(db.String(500))
 
-    # Nota: Se usa nombre diferente para evitar conflicto con otros modelos
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde= db.Column(db.DateTime)
-
     # Relaciones
     area = db.relationship(
         'CatArea',
@@ -214,14 +166,6 @@ class Acceso(db.Model):
     )
 
     permisos = db.relationship('Permiso', backref='acceso', cascade='all, delete-orphan')
-
-    # ✅ Relación auto-referencial para quien editó este acceso
-    editor_acceso = db.relationship(
-        'Acceso',
-        remote_side=[id_acceso],
-        foreign_keys=[editado_por],
-        backref='accesos_editando'
-    )
 
     def to_dict(self, include_password=False, include_version=True):
         data = {
@@ -239,10 +183,7 @@ class Acceso(db.Model):
 
         # ✅ INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
-            data['version'] = self.version  # Nota: usa version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor_acceso.nombre_usuario if self.editor_acceso else None
+            data.update(self.version_dict())
 
         return data
 
@@ -282,7 +223,7 @@ class Permiso(db.Model):
 # INVENTARIO
 # ============================================
 
-class EquipoComputo(db.Model):
+class EquipoComputo(db.Model, VersionMixin):
     __tablename__ = 'equipos_computo'
 
     id_activo = db.Column(db.Integer, primary_key=True)
@@ -298,16 +239,11 @@ class EquipoComputo(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
     # Relaciones
     tipo_activo = db.relationship('CatTipoActivo')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
     especificaciones = db.relationship('EspecificacionEquipo', backref='equipo', cascade='all, delete-orphan')
-    editor = db.relationship('Acceso', foreign_keys=[editado_por])
 
     def to_dict(self, include_specs=False, include_version=True):
         data = {
@@ -330,10 +266,8 @@ class EquipoComputo(db.Model):
         }
 
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
+
 
         if include_specs:
             data['especificaciones'] = [spec.to_dict() for spec in self.especificaciones]
@@ -377,16 +311,10 @@ class Mobiliario(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
-    version = db.Column(db.Integer, default=1, nullable=False)
-    editado_por = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso'))
-    editado_desde = db.Column(db.DateTime)
-
     # Relaciones
     tipo_mobiliario = db.relationship('CatTipoMobiliario')
     estado = db.relationship('CatEstado')
     usuario_asignado = db.relationship('Usuario')
-
-    editor = db.relationship('Acceso', foreign_keys=[editado_por])
 
     def to_dict(self, include_version=True):
         data = {
@@ -409,10 +337,7 @@ class Mobiliario(db.Model):
         }
 
         if include_version:
-            data['version'] = self.version
-            data['editado_por'] = self.editado_por
-            data['editado_desde'] = self.editado_desde.isoformat() if self.editado_desde else None
-            data['nombre_editor'] = self.editor.nombre_usuario if self.editor else None
+            data.update(self.version_dict())
 
         return data
 
