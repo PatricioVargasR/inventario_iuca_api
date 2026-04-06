@@ -4,17 +4,9 @@ from datetime import datetime
 import bcrypt
 from app import db
 from models import Acceso
+from utils.concurrency import get_client_ip
 
 auth_bp = Blueprint('auth', __name__)
-
-
-def get_client_ip():
-    """Obtiene la IP real del cliente considerando proxies"""
-    if request.headers.get('X-Forwarded-For'):
-        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
-    elif request.headers.get('X-Real-IP'):
-        return request.headers.get('X-Real-IP')
-    return request.remote_addr
 
 def get_client_fingerprint():
     """

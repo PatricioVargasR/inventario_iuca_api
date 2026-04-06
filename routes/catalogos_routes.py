@@ -1,477 +1,109 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import get_jwt_identity, jwt_required
-from app import db
-from models import BloqueoActivo, CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario
-from utils.concurrency import liberar_bloqueo, verificar_version
+from flask import Blueprint
+from flask_jwt_extended import jwt_required
+from models import CatArea, CatTipoActivo, CatEstado, CatTipoMobiliario
+from utils.crud_catalogo import crud_catalogo
+from utils.lock_required import lock_required
 from utils.decorators import require_permission
 from utils.validators import (
     validate_area,
     validate_estado,
     validate_tipo_activo,
     validate_tipo_mobiliario,
-    ValidationError,
-    handle_db_error,
 )
-from utils.lock_required import lock_required
 
 catalogos_bp = Blueprint('catalogos', __name__)
 
+# ── Generar funciones CRUD para cada catálogo ─────────────────────────────────
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÁREAS
-# ─────────────────────────────────────────────────────────────────────────────
+_area   = crud_catalogo(CatArea,           validate_area,            'Área',               'cat_areas',
+                        campo_busqueda='nombre_area',   clave_respuesta='areas',            campo_id='id_area',            campo_orden=CatArea.id_area)
+
+_estado = crud_catalogo(CatEstado,         validate_estado,          'Estado',             'cat_estados',
+                        campo_busqueda='nombre_estado', clave_respuesta='estados',          campo_id='id_estado',          campo_orden=CatEstado.id_estado)
+
+_t_activo = crud_catalogo(CatTipoActivo,   validate_tipo_activo,     'Tipo de activo',     'cat_tipos_activo',
+                        campo_busqueda='nombre_tipo',   clave_respuesta='tipos_activo',     campo_id='id_tipo_activo',     campo_orden=CatTipoActivo.id_tipo_activo)
+
+_t_mob  = crud_catalogo(CatTipoMobiliario, validate_tipo_mobiliario, 'Tipo de mobiliario', 'cat_tipos_mobiliario',
+                        campo_busqueda='nombre_tipo',   clave_respuesta='tipos_mobiliario', campo_id='id_tipo_mobiliario', campo_orden=CatTipoMobiliario.id_tipo_mobiliario)
+
+# Desempaquetar — ahora son 6 funciones
+(get_areas_completo_fn,   get_areas_fn,    get_area_fn,  create_area_fn,    update_area_fn,    delete_area_fn)    = _area
+(get_estados_completo_fn, get_estados_fn,  get_estado_fn, create_estado_fn, update_estado_fn,  delete_estado_fn)  = _estado
+(get_t_activo_completo_fn,get_t_activo_fn, get_activo_fn, create_t_activo_fn,update_t_activo_fn,delete_t_activo_fn)= _t_activo
+(get_t_mob_completo_fn,   get_t_mob_fn,   get_mob_fn,   create_t_mob_fn,   update_t_mob_fn,   delete_t_mob_fn)   = _t_mob
+
+# ── ÁREAS ─────────────────────────────────────────────────────────────────────
 
 @catalogos_bp.route('/areas-completo', methods=['GET'])
 @jwt_required()
 def get_areas_completo():
-    """Obtener areas sin paginar"""
-    areas = CatArea.query.filter_by(activo=True)
-    if not areas:
-        return jsonify({'error': 'No se encontraron áreas'}), 404
-    return jsonify([a.to_dict() for a in areas]), 200
-
+    return get_areas_completo_fn()
 
 @catalogos_bp.route('/areas', methods=['GET'])
 @jwt_required()
 @require_permission('catalogos', 'puede_leer')
 def get_areas():
-    search   = request.args.get('search', '').strip()
-    page     = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-
-    query = CatArea.query
-    if search:
-        query = query.filter(
-            db.or_(
-                CatArea.nombre_area.ilike(f'%{search}%'),
-                CatArea.descripcion.ilike(f'%{search}%')
-            )
-        )
-    query = query.order_by(CatArea.id_area.desc())
-    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        'areas':        [a.to_dict() for a in paginated.items],
-        'total':        paginated.total,
-        'pages':        paginated.pages,
-        'current_page': paginated.page,
-    }), 200
-
+    return get_areas_fn()
 
 @catalogos_bp.route('/areas/<int:id>', methods=['GET'])
 @jwt_required()
 @require_permission('catalogos', 'puede_leer')
 def get_area(id):
-    area = CatArea.query.get(id)
-    if not area:
-        return jsonify({'error': 'Área no encontrada'}), 404
-    return jsonify(area.to_dict()), 200
-
+    return get_area_fn(id)
 
 @catalogos_bp.route('/areas', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
 def create_area():
-    user_id = get_jwt_identity()
-    data = request.get_json()
-
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_area(data, is_update=False)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    if CatArea.query.filter_by(nombre_area=data['nombre_area']).first():
-        return jsonify({
-            'error': 'El área ya existe',
-            'campos': {'nombre': 'Ya existe un área con este nombre'}
-        }), 409
-
-    try:
-        area = CatArea(
-            nombre_area=data['nombre_area'].strip(),
-            descripcion=data.get('descripcion'),
-            activo=data.get('activo', True),
-            version=1,
-            editado_por=user_id
-        )
-        db.session.add(area)
-        db.session.commit()
-        return jsonify({'mensaje': 'Área creada', 'area': area.to_dict()}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
-
+    return create_area_fn()
 
 @catalogos_bp.route('/areas/<int:id>', methods=['PUT'])
 @jwt_required()
 @require_permission('catalogos', 'puede_actualizar')
 def update_area(id):
-    user_id = get_jwt_identity()
-    area = CatArea.query.get(id)
-    if not area:
-        return jsonify({'error': 'Área no encontrada'}), 404
-
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_area(data, is_update=True)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    # ── Control de versiones ─────────────────────────────────────
-    version_cliente = data.get('version')
-    if version_cliente is not None:
-        es_valida, version_actual = verificar_version(CatArea, id, version_cliente)
-        if not es_valida:
-            return jsonify({
-                'error': 'conflict',
-                'mensaje': 'El registro fue modificado por otro usuario',
-                'version_actual': version_actual,
-                'datos_actuales': area.to_dict(include_version=True)
-            }), 409
-
-    try:
-        if 'nombre_area' in data:
-            area.nombre_area = data['nombre_area'].strip()
-        if 'descripcion' in data:
-            area.descripcion = data['descripcion']
-        if 'activo' in data:
-            area.activo = data['activo']
-
-        db.session.commit()
-        liberar_bloqueo('cat_areas', id, int(user_id))
-
-        return jsonify({'mensaje': 'Área actualizada', 'area': area.to_dict()}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
-
+    return update_area_fn(id)
 
 @catalogos_bp.route('/areas/<int:id>', methods=['DELETE'])
 @jwt_required()
 @require_permission('catalogos', 'puede_eliminar')
 @lock_required('cat_areas')
 def delete_area(id, bloqueo):
-    area = CatArea.query.get(id)
-    if not area:
-        return jsonify({'error': 'Área no encontrada'}), 404
-
-    try:
-        db.session.delete(area)
-        db.session.delete(bloqueo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Área eliminada'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return delete_area_fn(id, bloqueo)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TIPOS DE ACTIVO
-# ─────────────────────────────────────────────────────────────────────────────
-
-@catalogos_bp.route('/tipos-activo-completo', methods=['GET'])
-@jwt_required()
-def get_tipos_activos_completo():
-    activos = CatTipoActivo.query.filter_by(activo=True)
-    if not activos:
-        return jsonify({'error': 'No se encontraron tipos de activos'}), 404
-    return jsonify([a.to_dict() for a in activos]), 200
-
-
-@catalogos_bp.route('/tipos-activo', methods=['GET'])
-@jwt_required()
-def get_tipos_activo():
-    search   = request.args.get('search', '').strip()
-    page     = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-
-    query = CatTipoActivo.query
-    if search:
-        query = query.filter(
-            db.or_(
-                CatTipoActivo.nombre_tipo.ilike(f'%{search}%'),
-                CatTipoActivo.descripcion.ilike(f'%{search}%')
-            )
-        )
-    query = query.order_by(CatTipoActivo.id_tipo_activo.desc())
-    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        'tipos_activo': [t.to_dict() for t in paginated.items],
-        'total':        paginated.total,
-        'pages':        paginated.pages,
-        'current_page': paginated.page,
-    }), 200
-
-
-@catalogos_bp.route('/activo/<int:id>', methods=['GET'])
-@jwt_required()
-@require_permission('catalogos', 'puede_leer')
-def get_activo(id):
-    activo = CatTipoActivo.query.get(id)
-    if not activo:
-        return jsonify({'error': 'Tipo de activo no encontrado'}), 404
-    return jsonify(activo.to_dict()), 200
-
-
-@catalogos_bp.route('/tipos-activo', methods=['POST'])
-@jwt_required()
-@require_permission('catalogos', 'puede_crear')
-def create_tipo_activo():
-    user_id = get_jwt_identity()
-    data = request.get_json()
-
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_tipo_activo(data, is_update=False)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    if CatTipoActivo.query.filter_by(nombre_tipo=data['nombre_tipo']).first():
-        return jsonify({
-            'error': 'El tipo ya existe',
-            'campos': {'nombre': 'Ya existe un tipo de activo con este nombre'}
-        }), 409
-
-    try:
-        tipo = CatTipoActivo(
-            nombre_tipo=data['nombre_tipo'].strip(),
-            descripcion=data.get('descripcion'),
-            activo=data.get('activo', True),
-            version=1,
-            editado_por=user_id
-        )
-        db.session.add(tipo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Tipo de activo creado', 'tipo': tipo.to_dict()}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
-
-
-@catalogos_bp.route('/tipos-activo/<int:id>', methods=['PUT'])
-@jwt_required()
-@require_permission('catalogos', 'puede_actualizar')
-def update_tipo_activo(id):
-    user_id = get_jwt_identity()
-    tipo = CatTipoActivo.query.get(id)
-    if not tipo:
-        return jsonify({'error': 'Tipo no encontrado'}), 404
-
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_tipo_activo(data, is_update=True)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    # ── Control de versiones ─────────────────────────────────────
-    version_cliente = data.get('version')
-    if version_cliente is not None:
-        es_valida, version_actual = verificar_version(CatTipoActivo, id, version_cliente)
-        if not es_valida:
-            return jsonify({
-                'error': 'conflict',
-                'mensaje': 'El registro fue modificado por otro usuario',
-                'version_actual': version_actual,
-                'datos_actuales': tipo.to_dict(include_version=True)
-            }), 409
-
-    try:
-        if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo'].strip()
-        if 'descripcion' in data: tipo.descripcion = data['descripcion']
-        if 'activo'      in data: tipo.activo      = data['activo']
-
-        db.session.commit()
-        liberar_bloqueo('cat_tipos_activo', id, int(user_id))
-
-        return jsonify({'mensaje': 'Tipo actualizado', 'tipo': tipo.to_dict()}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
-
-
-@catalogos_bp.route('/tipos-activo/<int:id>', methods=['DELETE'])
-@jwt_required()
-@require_permission('catalogos', 'puede_eliminar')
-@lock_required('cat_tipos_activo')
-def delete_tipo_activo(id, bloqueo):
-    tipo = CatTipoActivo.query.get(id)
-    if not tipo:
-        return jsonify({'error': 'Tipo no encontrado'}), 404
-
-    try:
-        db.session.delete(tipo)
-        db.session.delete(bloqueo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Tipo eliminado'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ESTADOS
-# ─────────────────────────────────────────────────────────────────────────────
+# ── ESTADOS ───────────────────────────────────────────────────────────────────
 
 @catalogos_bp.route('/estados-completo', methods=['GET'])
 @jwt_required()
 def get_estados_completo():
-    estados = CatEstado.query.filter_by(activo=True)
-    if not estados:
-        return jsonify({'error': 'No se encontraron estados'}), 404
-    return jsonify([e.to_dict() for e in estados]), 200
-
+    return get_estados_completo_fn()
 
 @catalogos_bp.route('/estados', methods=['GET'])
 @jwt_required()
+@require_permission('catalogos', 'puede_leer')
 def get_estados():
-    search   = request.args.get('search', '').strip()
-    page     = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-
-    query = CatEstado.query
-    if search:
-        query = query.filter(
-            db.or_(
-                CatEstado.nombre_estado.ilike(f'%{search}%'),
-                CatEstado.descripcion.ilike(f'%{search}%')
-            )
-        )
-    query = query.order_by(CatEstado.id_estado.desc())
-    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        'estados':      [e.to_dict() for e in paginated.items],
-        'total':        paginated.total,
-        'pages':        paginated.pages,
-        'current_page': paginated.page,
-    }), 200
-
+    return get_estados_fn()
 
 @catalogos_bp.route('/estados/<int:id>', methods=['GET'])
 @jwt_required()
 @require_permission('catalogos', 'puede_leer')
 def get_estado(id):
-    estado = CatEstado.query.get(id)
-    if not estado:
-        return jsonify({'error': 'Estado no encontrado'}), 404
-    return jsonify(estado.to_dict()), 200
+    return get_estado_fn(id)
 
 
 @catalogos_bp.route('/estados', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
 def create_estado():
-    user_id = get_jwt_identity()
-    data = request.get_json()
-
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_estado(data, is_update=False)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    if CatEstado.query.filter_by(nombre_estado=data['nombre_estado']).first():
-        return jsonify({
-            'error': 'El estado ya existe',
-            'campos': {'nombre': 'Ya existe un estado con este nombre'}
-        }), 409
-
-    try:
-        estado = CatEstado(
-            nombre_estado=data['nombre_estado'].strip(),
-            descripcion=data.get('descripcion'),
-            activo=data.get('activo', True),
-            color_hex=data.get('color_hex'),
-            version=1,
-            editado_por=user_id
-        )
-        db.session.add(estado)
-        db.session.commit()
-        return jsonify({'mensaje': 'Estado creado', 'estado': estado.to_dict()}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return create_estado_fn()
 
 
 @catalogos_bp.route('/estados/<int:id>', methods=['PUT'])
 @jwt_required()
 @require_permission('catalogos', 'puede_actualizar')
 def update_estado(id):
-    user_id = get_jwt_identity()
-    estado = CatEstado.query.get(id)
-    if not estado:
-        return jsonify({'error': 'Estado no encontrado'}), 404
-
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_estado(data, is_update=True)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    # ── Control de versiones ─────────────────────────────────────
-    version_cliente = data.get('version')
-    if version_cliente is not None:
-        es_valida, version_actual = verificar_version(CatEstado, id, version_cliente)
-        if not es_valida:
-            return jsonify({
-                'error': 'conflict',
-                'mensaje': 'El registro fue modificado por otro usuario',
-                'version_actual': version_actual,
-                'datos_actuales': estado.to_dict(include_version=True)
-            }), 409
-
-    try:
-        if 'nombre_estado' in data: estado.nombre_estado = data['nombre_estado'].strip()
-        if 'descripcion'   in data: estado.descripcion   = data['descripcion']
-        if 'color_hex'     in data: estado.color_hex     = data['color_hex']
-        if 'activo'        in data: estado.activo        = data['activo']
-
-        db.session.commit()
-        liberar_bloqueo('cat_estados', id, int(user_id))
-
-        return jsonify({'mensaje': 'Estado actualizado', 'estado': estado.to_dict()}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return update_estado_fn(id)
 
 
 @catalogos_bp.route('/estados/<int:id>', methods=['DELETE'])
@@ -479,156 +111,80 @@ def update_estado(id):
 @require_permission('catalogos', 'puede_eliminar')
 @lock_required('cat_estados')
 def delete_estado(id, bloqueo):
-    estado = CatEstado.query.get(id)
-    if not estado:
-        return jsonify({'error': 'Estado no encontrado'}), 404
-
-    try:
-        db.session.delete(estado)
-        db.session.delete(bloqueo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Estado eliminado'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return delete_estado_fn(id, bloqueo)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TIPOS DE MOBILIARIO
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TIPOS DE ACTIVO ───────────────────────────────────────────────────────────
+
+@catalogos_bp.route('/tipos-activo-completo', methods=['GET'])
+@jwt_required()
+def get_tipos_activos_completo():
+    return get_t_activo_completo_fn()
+
+@catalogos_bp.route('/tipos-activo', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos', 'puede_leer')
+def get_activos():
+    return get_t_activo_fn()
+
+@catalogos_bp.route('/activo/<int:id>', methods=['GET'])
+@jwt_required()
+@require_permission('catalogos', 'puede_leer')
+def get_activo(id):
+    return get_activo_fn(id)
+
+@catalogos_bp.route('/tipos-activo', methods=['POST'])
+@jwt_required()
+@require_permission('catalogos', 'puede_crear')
+def create_tipo_activo():
+    return create_t_activo_fn()
+
+@catalogos_bp.route('/tipos-activo/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_permission('catalogos', 'puede_actualizar')
+def update_tipo_activo(id):
+    return update_t_activo_fn(id)
+
+@catalogos_bp.route('/tipos-activo/<int:id>', methods=['DELETE'])
+@jwt_required()
+@require_permission('catalogos', 'puede_eliminar')
+@lock_required('cat_tipos_activo')
+def delete_tipo_activo(id, bloqueo):
+    return delete_t_activo_fn(id, bloqueo)
+
+
+# ── TIPOS DE MOBILIARIO ───────────────────────────────────────────────────────
 
 @catalogos_bp.route('/tipo-completo', methods=['GET'])
 @jwt_required()
 def get_mobiliario_completo():
-    mobiliarios = CatTipoMobiliario.query.filter_by(activo=True)
-    if not mobiliarios:
-        return jsonify({'error': 'No se encontraron tipos de mobiliarios'}), 404
-    return jsonify([m.to_dict() for m in mobiliarios]), 200
-
+    return get_t_mob_completo_fn()
 
 @catalogos_bp.route('/tipos-mobiliario', methods=['GET'])
 @jwt_required()
-def get_tipos_mobiliario():
-    search   = request.args.get('search', '').strip()
-    page     = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-
-    query = CatTipoMobiliario.query
-    if search:
-        query = query.filter(
-            db.or_(
-                CatTipoMobiliario.nombre_tipo.ilike(f'%{search}%'),
-                CatTipoMobiliario.descripcion.ilike(f'%{search}%')
-            )
-        )
-    query = query.order_by(CatTipoMobiliario.id_tipo_mobiliario.desc())
-    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        'tipos_mobiliario': [t.to_dict() for t in paginated.items],
-        'total':            paginated.total,
-        'pages':            paginated.pages,
-        'current_page':     paginated.page,
-    }), 200
-
+@require_permission('catalogos', 'puede_leer')
+def get_mobiliarios():
+    return get_t_mob_fn()
 
 @catalogos_bp.route('/mobiliario/<int:id>', methods=['GET'])
 @jwt_required()
 @require_permission('catalogos', 'puede_leer')
 def get_catalogo(id):
-    catalogo = CatTipoMobiliario.query.get(id)
-    if not catalogo:
-        return jsonify({'error': 'Catálogo no encontrado'}), 404
-    return jsonify(catalogo.to_dict()), 200
+    return get_mob_fn(id)
 
 
 @catalogos_bp.route('/tipos-mobiliario', methods=['POST'])
 @jwt_required()
 @require_permission('catalogos', 'puede_crear')
 def create_tipo_mobiliario():
-    user_id = get_jwt_identity()
-    data = request.get_json()
-
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_tipo_mobiliario(data, is_update=False)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    if CatTipoMobiliario.query.filter_by(nombre_tipo=data['nombre_tipo']).first():
-        return jsonify({
-            'error': 'El tipo ya existe',
-            'campos': {'nombre': 'Ya existe un tipo de mobiliario con este nombre'}
-        }), 409
-
-    try:
-        tipo = CatTipoMobiliario(
-            nombre_tipo=data['nombre_tipo'].strip(),
-            descripcion=data.get('descripcion'),
-            activo=data.get('activo', True),
-            version=1,
-            editado_por=user_id
-        )
-        db.session.add(tipo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Tipo de mobiliario creado', 'tipo': tipo.to_dict()}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return create_t_mob_fn()
 
 
 @catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['PUT'])
 @jwt_required()
 @require_permission('catalogos', 'puede_actualizar')
 def update_tipo_mobiliario(id):
-    user_id = get_jwt_identity()
-    tipo = CatTipoMobiliario.query.get(id)
-    if not tipo:
-        return jsonify({'error': 'Tipo no encontrado'}), 404
-
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-
-    # ── Validación ──────────────────────────────────────────────
-    try:
-        validate_tipo_mobiliario(data, is_update=True)
-    except ValidationError as e:
-        return jsonify({'error': e.message, 'campos': e.fields}), 422
-
-    # ── Control de versiones ─────────────────────────────────────
-    version_cliente = data.get('version')
-    if version_cliente is not None:
-        es_valida, version_actual = verificar_version(CatTipoMobiliario, id, version_cliente)
-        if not es_valida:
-            return jsonify({
-                'error': 'conflict',
-                'mensaje': 'El registro fue modificado por otro usuario',
-                'version_actual': version_actual,
-                'datos_actuales': tipo.to_dict(include_version=True)
-            }), 409
-
-    try:
-        if 'nombre_tipo' in data: tipo.nombre_tipo = data['nombre_tipo'].strip()
-        if 'descripcion' in data: tipo.descripcion = data['descripcion']
-        if 'activo'      in data: tipo.activo      = data['activo']
-
-        db.session.commit()
-        liberar_bloqueo('cat_tipos_mobiliario', id, int(user_id))
-
-        return jsonify({'mensaje': 'Tipo actualizado', 'tipo': tipo.to_dict()}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return update_t_mob_fn(id)
 
 
 @catalogos_bp.route('/tipos-mobiliario/<int:id>', methods=['DELETE'])
@@ -636,17 +192,4 @@ def update_tipo_mobiliario(id):
 @require_permission('catalogos', 'puede_eliminar')
 @lock_required('cat_tipos_mobiliario')
 def delete_tipo_mobiliario(id, bloqueo):
-    tipo = CatTipoMobiliario.query.get(id)
-    if not tipo:
-        return jsonify({'error': 'Tipo no encontrado'}), 404
-
-    try:
-        db.session.delete(tipo)
-        db.session.delete(bloqueo)
-        db.session.commit()
-        return jsonify({'mensaje': 'Tipo eliminado'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        message, code = handle_db_error(e)
-        return jsonify({'error': message}), code
+    return delete_t_mob_fn(id, bloqueo)
