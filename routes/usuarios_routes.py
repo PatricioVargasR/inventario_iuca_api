@@ -25,7 +25,8 @@ def get_responsables():
 
 
 @usuarios_bp.route('/responsable/<int:id>', methods=['GET'])
-@jwt_required('responsable', 'puede_leer')
+@jwt_required()
+@require_permission('responsable', 'puede_leer')
 def get_responsable(id):
     """Obtener usuario responsable por ID"""
     usuario = Usuario.query.get(id)
