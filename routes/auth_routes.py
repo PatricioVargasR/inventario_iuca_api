@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import (
+    create_access_token, jwt_required, get_jwt_identity, decode_token
+)
 from datetime import datetime
 import bcrypt
 from app import db
@@ -38,6 +40,34 @@ def _crear_sesion(usuario, client_ip, client_ua):
     return access_token
 
 
+def _sesion_expirada(token: str) -> bool:
+    """
+    Devuelve True si el token JWT guardado ya expiró.
+    Si no se puede decodificar por cualquier razón, también se considera expirado.
+    """
+    try:
+        decoded = decode_token(token)
+        exp = decoded.get('exp')
+        if exp is None:
+            return True
+        return datetime.utcnow().timestamp() > exp
+    except Exception:
+        return True
+
+def _limpiar_sesion_si_expirada(usuario) -> bool:
+    """
+    Si el token guardado ya expiró, limpia los campos de sesión y guarda.
+    Retorna True si se limpió, False si la sesión sigue vigente.
+    """
+    if usuario.token_sesion_activa and _sesion_expirada(usuario.token_sesion_activa):
+        usuario.token_sesion_activa = None
+        usuario.fecha_inicio_sesion = None
+        usuario.ip_sesion = None
+        usuario.user_agent_sesion = None
+        db.session.commit()
+        return True
+    return False
+
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -56,11 +86,14 @@ def login():
 
     client_ip, client_ua = get_client_fingerprint()
 
+    # ── NUEVO: limpiar sesión si el token ya expiró ──────────────────────
+    _limpiar_sesion_si_expirada(usuario)
+    # ────────────────────────────────────────────────────────────────────
+
     if usuario.token_sesion_activa:
         mismo_dispositivo = _es_mismo_dispositivo(usuario, client_ip, client_ua)
 
         if mismo_dispositivo:
-            # Caso 2: misma computadora → permitir force-login
             return jsonify({
                 'error': 'session_active_same_ip',
                 'mensaje': 'Ya tienes una sesión abierta en este dispositivo',
@@ -70,7 +103,6 @@ def login():
                 }
             }), 409
         else:
-            # Caso 1 y 3: diferente dispositivo (misma red o diferente red) → bloquear
             return jsonify({
                 'error': 'session_active_different_ip',
                 'mensaje': 'Ya existe una sesión activa desde otro dispositivo',
@@ -91,7 +123,6 @@ def login():
             'fecha_inicio': usuario.fecha_inicio_sesion.isoformat()
         }
     }), 200
-
 
 @auth_bp.route('/force-login', methods=['POST'])
 def force_login():
@@ -114,6 +145,10 @@ def force_login():
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
     client_ip, client_ua = get_client_fingerprint()
+
+    # ── NUEVO: limpiar sesión si el token ya expiró ──────────────────────
+    _limpiar_sesion_si_expirada(usuario)
+    # ────────────────────────────────────────────────────────────────────
 
     if usuario.token_sesion_activa:
         mismo_dispositivo = _es_mismo_dispositivo(usuario, client_ip, client_ua)
@@ -151,6 +186,7 @@ def logout():
         usuario.token_sesion_activa = None
         usuario.fecha_inicio_sesion = None
         usuario.ip_sesion = None
+        usuario.user_agent_session = None
         db.session.commit()
 
     return jsonify({'mensaje': 'Sesión cerrada exitosamente'}), 200
