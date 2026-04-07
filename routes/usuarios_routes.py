@@ -184,6 +184,13 @@ def delete_responsable(id, bloqueo):
 # ACCESOS (cuentas del sistema con permisos)
 # ============================================
 
+@usuarios_bp.route('/accesos-filtro', methods=['GET'])
+@jwt_required()
+def get_accesos_filtro():
+    """Lista los accesos para funcionar como filtros"""
+    accesos = Acceso.query.order_by(Acceso.nombre_usuario)
+    return jsonify([u.to_dict() for u in accesos]), 200
+
 @usuarios_bp.route('/accesos', methods=['GET'])
 @jwt_required()
 @require_permission('acceso', 'puede_leer')
