@@ -27,6 +27,8 @@ def get_vista_equipos_completa():
     estado = request.args.get('estado_id')
     area = request.args.get('area')
     responsable = request.args.get('usuario_id')
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -48,6 +50,14 @@ def get_vista_equipos_completa():
     if responsable:
         query = query.filter(VistaEquiposCompleta.responsable.ilike(f'%{responsable}%'))
 
+    if sort_by:
+        column = getattr(VistaEquiposCompleta, sort_by, None)
+        if column:
+            if sort_dir == 'desc':
+                query = query.order_by(column.desc())
+            else:
+                query = query.order_by(column.asc())
+
     if search:
         query = query.filter(
             or_(
@@ -59,9 +69,6 @@ def get_vista_equipos_completa():
                 cast(VistaEquiposCompleta.id_activo, String).ilike(f'%{search}%')
             )
         )
-
-    # Ordenar por ID descendente
-    query = query.order_by(VistaEquiposCompleta.id_activo.desc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -103,6 +110,8 @@ def get_vista_mobiliario_completa():
     estado = request.args.get('estado_id')
     area = request.args.get('area')
     responsable = request.args.get('usuario_id')
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -123,6 +132,14 @@ def get_vista_mobiliario_completa():
     if responsable:
         query = query.filter(VistaMobiliarioCompleta.responsable.ilike(f'%{responsable}%'))
 
+    if sort_by:
+        column = getattr(VistaMobiliarioCompleta, sort_by, None)
+        if column:
+            if sort_dir == 'desc':
+                query = query.order_by(column.desc())
+            else:
+                query = query.order_by(column.asc())
+
     if search:
         query = query.filter(
             or_(
@@ -135,9 +152,6 @@ def get_vista_mobiliario_completa():
 
             )
         )
-
-    # Ordenar por ID descendente
-    query = query.order_by(VistaMobiliarioCompleta.id_mueble.desc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -173,7 +187,9 @@ def get_mobiliario_completo(id):
 @require_permission('responsable', 'puede_leer')
 def get_vista_responsables_completa():
     """Obtener vista de usuarios responsables con conteo de bienes asignados"""
-    search = request.args.get('search', '')
+    search = request.args.get('search', '').strip()
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     area = request.args.get('area_id')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -194,8 +210,13 @@ def get_vista_responsables_completa():
             )
         )
 
-    # Ordenar alfabéticamente por nombre
-    query = query.order_by(VistaUsuariosCompleta.id_usuario.desc())
+    if sort_by:
+        column = getattr(VistaUsuariosCompleta, sort_by, None)
+        if column:
+            if sort_dir == 'desc':
+                query = query.order_by(column.desc())
+            else:
+                query = query.order_by(column.asc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -233,6 +254,8 @@ def get_vista_accesos_completa():
     """Obtener vista de accesos al sistema con resumen de permisos"""
     search = request.args.get('search', '')
     area = request.args.get('area_id')
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     permisos_param = request.args.get('permisos')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -243,6 +266,14 @@ def get_vista_accesos_completa():
     # Filtro por área
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
+
+    if sort_by:
+        column = getattr(VistaAccesosCompleta, sort_by, None)
+        if column:
+            if sort_dir == 'desc':
+                query = query.order_by(column.desc())
+            else:
+                query = query.order_by(column.asc())
 
     # Filtro por permisos
     if permisos_param:
@@ -299,9 +330,6 @@ def get_vista_accesos_completa():
                 cast(VistaAccesosCompleta.id_acceso, String).ilike(f'%{search}%')
             )
         )
-
-    # Ordenar
-    query = query.order_by(VistaAccesosCompleta.id_acceso.desc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)

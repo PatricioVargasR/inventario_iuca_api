@@ -53,6 +53,7 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
         paginated = query.order_by(campo_orden.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
+
         return jsonify({
             clave_respuesta: [i.to_dict() for i in paginated.items],
             'total':         paginated.total,

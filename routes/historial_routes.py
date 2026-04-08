@@ -30,6 +30,8 @@ def get_historial():
         usuario_id    = request.args.get('usuario_id')
         fecha_desde   = request.args.get('fecha_desde', '').strip()
         fecha_hasta   = request.args.get('fecha_hasta', '').strip()
+        sort_by = request.args.get('sort_by')
+        sort_dir = request.args.get('sort_dir', 'asc')
 
         # ── Tablas que SÍ se muestran en el historial ──────────────────
         TABLAS_VISIBLES = {
@@ -196,8 +198,16 @@ def get_historial():
             except ValueError:
                 pass
 
+        if sort_by:
+            column = getattr(VistaHistorialCompleta, sort_by, None)
+            if column:
+                if sort_dir == 'desc':
+                    query = query.order_by(column.desc())
+                else:
+                    query = query.order_by(column.asc())
+
         # Ordenar por fecha descendente
-        query = query.order_by(VistaHistorialCompleta.fecha.desc())
+        query = query.order_by(VistaHistorialCompleta.id_historial.asc())
 
         # ── Paginación ──────────────────────────────────────────────────
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)

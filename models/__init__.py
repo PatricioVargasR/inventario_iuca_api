@@ -298,7 +298,7 @@ class EspecificacionEquipo(db.Model):
         }
 
 
-class Mobiliario(db.Model):
+class Mobiliario(db.Model, VersionMixin):
     __tablename__ = 'mobiliario'
 
     id_mueble = db.Column(db.Integer, primary_key=True)
