@@ -179,7 +179,7 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
 
         except Exception as e:
             db.session.rollback()
-            message, code = handle_db_error(e)
+            message, code = handle_db_error(e, tabla=tabla)
             return jsonify({'error': message}), code
 
 

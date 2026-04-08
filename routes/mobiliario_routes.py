@@ -193,5 +193,5 @@ def delete_mobiliario(id, bloqueo):
 
     except Exception as e:
         db.session.rollback()
-        message, code = handle_db_error(e)
+        message, code = handle_db_error(e, tabla='mobiliario')
         return jsonify({'error': message}), code

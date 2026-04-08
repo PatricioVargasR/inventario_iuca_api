@@ -15,8 +15,6 @@ Uso en una ruta:
 """
 
 import re
-from datetime import datetime
-
 
 class ValidationError(Exception):
     """Error de validación con mensaje legible y campos afectados."""
@@ -320,7 +318,7 @@ def validate_tipo(data: dict, is_update: bool = False) -> dict:
 
 # ── Error handler de SQLAlchemy ──────────────────────────────────────────────
 
-def handle_db_error(e: Exception) -> tuple:
+def handle_db_error(e: Exception, tabla: str = None) -> tuple:
     """
     Convierte excepciones de SQLAlchemy/psycopg2 en respuestas JSON legibles.
     Retorna (mensaje, código_http).
@@ -330,30 +328,43 @@ def handle_db_error(e: Exception) -> tuple:
             message, code = handle_db_error(e)
             return jsonify({'error': message}), code
     """
-    from flask import jsonify
 
+    # Intentar obtener código SQLSTATE
+    error_code = getattr(getattr(e, 'orig', None), 'pgcode', None)
+
+    print(type(error_code))
+
+    # FALLBACK (por si no es IntegrityError)
     error_str = str(e).lower()
 
-    if 'unique' in error_str or 'duplicate' in error_str:
+    if  error_code == '23505':
         # Intentar extraer el campo duplicado
-        import re
         match = re.search(r'key \((.+?)\)', str(e))
         if match:
             campo = match.group(1).replace('_', ' ')
             return f'Ya existe un registro con ese {campo}', 409
         return 'Ya existe un registro con esos datos', 409
 
-    if 'not null' in error_str or 'null value' in error_str:
+    if error_code == '23502':
         match = re.search(r'column "(.+?)"', str(e))
         if match:
             campo = match.group(1).replace('_', ' ')
             return f'El campo "{campo}" es obligatorio', 422
         return 'Hay campos obligatorios sin completar', 422
 
-    if 'foreign key' in error_str:
-        return 'El registro está relacionado con otros datos y no puede ser modificado o eliminado', 409
+    if error_code == '23503':
+        MENSAJES_FK = {
+            'usuario':     'No se puede eliminar este responsable porque tiene equipos o mobiliario asignado.',
+            'acceso':      'No se puede eliminar este acceso porque tiene permisos u otras relaciones activas.',
+            'cat_areas':   'No se puede eliminar esta área porque hay usuarios o accesos asociados a ella.',
+            'cat_estados': 'No se puede eliminar este estado porque hay equipos o mobiliario que lo usan.',
+            'cat_tipos_activo':     'No se puede eliminar este tipo porque hay equipos que lo usan.',
+            'cat_tipos_mobiliario': 'No se puede eliminar este tipo porque hay mobiliario que lo usa.',
+        }
+        mensaje = MENSAJES_FK.get(tabla, 'Este registro está relacionado con otros datos y no puede eliminarse.')
+        return mensaje, 409
 
-    if 'check constraint' in error_str:
+    if error_code == '23514':
         return 'Los datos no cumplen con las reglas de validación del sistema', 422
 
     if 'connection' in error_str or 'operational' in error_str:

@@ -176,7 +176,7 @@ def delete_responsable(id, bloqueo):
 
     except Exception as e:
         db.session.rollback()
-        message, code = handle_db_error(e)
+        message, code = handle_db_error(e, tabla='usuario')
         return jsonify({'error': message}), code
 
 
@@ -408,5 +408,5 @@ def delete_acceso(id, bloqueo):
 
     except Exception as e:
         db.session.rollback()
-        message, code = handle_db_error(e)
+        message, code = handle_db_error(e, tabla='acceso')
         return jsonify({'error': message}), code
