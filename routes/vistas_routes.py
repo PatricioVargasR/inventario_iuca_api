@@ -29,7 +29,7 @@ def get_vista_equipos_completa():
     responsable = request.args.get('usuario_id')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     # Query base usando el modelo
     query = VistaEquiposCompleta.query
@@ -105,7 +105,7 @@ def get_vista_mobiliario_completa():
     responsable = request.args.get('usuario_id')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     # Query base usando el modelo
     query = VistaMobiliarioCompleta.query
@@ -176,7 +176,7 @@ def get_vista_responsables_completa():
     search = request.args.get('search', '')
     area = request.args.get('area_id')
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     # Query base usando el modelo
     query = VistaUsuariosCompleta.query
@@ -235,7 +235,7 @@ def get_vista_accesos_completa():
     area = request.args.get('area_id')
     permisos_param = request.args.get('permisos')
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     # Query base
     query = VistaAccesosCompleta.query

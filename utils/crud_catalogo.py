@@ -32,6 +32,7 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
 
     def get_paginado():
         search   = request.args.get('search', '').strip()
+        estado   = request.args.get('estado')
         page     = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
 
@@ -44,6 +45,11 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
                     modelo.descripcion.ilike(f'%{search}%')
                 )
             )
+
+        if estado:
+            estado_bool = estado.lower() == "true"
+            query = query.filter_by(activo = estado_bool)
+
         paginated = query.order_by(campo_orden.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
