@@ -332,8 +332,6 @@ def handle_db_error(e: Exception, tabla: str = None) -> tuple:
     # Intentar obtener código SQLSTATE
     error_code = getattr(getattr(e, 'orig', None), 'pgcode', None)
 
-    print(type(error_code))
-
     # FALLBACK (por si no es IntegrityError)
     error_str = str(e).lower()
 
@@ -352,7 +350,7 @@ def handle_db_error(e: Exception, tabla: str = None) -> tuple:
             return f'El campo "{campo}" es obligatorio', 422
         return 'Hay campos obligatorios sin completar', 422
 
-    if error_code == '23503':
+    if error_code in ('23503', '23001'):
         MENSAJES_FK = {
             'usuario':     'No se puede eliminar este responsable porque tiene equipos o mobiliario asignado.',
             'acceso':      'No se puede eliminar este acceso porque tiene permisos u otras relaciones activas.',

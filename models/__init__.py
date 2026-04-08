@@ -122,7 +122,10 @@ class Usuario(db.Model, VersionMixin):
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     # Relaciones
-    area = db.relationship('CatArea', backref='usuarios')
+    area = db.relationship(
+        'CatArea',
+        backref=db.backref('usuarios', passive_deletes=True)
+    )
 
     def to_dict(self, include_version=True):
         data = {
@@ -162,7 +165,7 @@ class Acceso(db.Model, VersionMixin):
     area = db.relationship(
         'CatArea',
         foreign_keys=[area_id],
-        backref='accesos'
+        backref=db.backref('accesos', passive_deletes=True)
     )
 
     permisos = db.relationship('Permiso', backref='acceso', cascade='all, delete-orphan')

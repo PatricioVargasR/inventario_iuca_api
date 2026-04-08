@@ -179,9 +179,11 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
 
         except Exception as e:
             db.session.rollback()
+            print(f"TIPO: {type(e)}")
+            print(f"PGCODE: {getattr(getattr(e, 'orig', None), 'pgcode', 'SIN PGCODE')}")
+            print(f"STR: {str(e)[:200]}")
             message, code = handle_db_error(e, tabla=tabla)
             return jsonify({'error': message}), code
-
 
     return get_completo,get_paginado,  get_one, create, update, delete
 
