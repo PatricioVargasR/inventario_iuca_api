@@ -70,6 +70,9 @@ def get_vista_equipos_completa():
             )
         )
 
+    # Orden inicial de la página
+    query = query.order_by(VistaEquiposCompleta.id_activo.asc())
+
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
@@ -153,6 +156,9 @@ def get_vista_mobiliario_completa():
             )
         )
 
+    # Orden inicial de la página
+    query = query.order_by(VistaMobiliarioCompleta.id_mueble.asc())
+
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
@@ -217,6 +223,9 @@ def get_vista_responsables_completa():
                 query = query.order_by(column.desc())
             else:
                 query = query.order_by(column.asc())
+
+    # Orden inicial de la página
+    query = query.order_by(VistaUsuariosCompleta.id_usuario.asc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -330,6 +339,9 @@ def get_vista_accesos_completa():
                 cast(VistaAccesosCompleta.id_acceso, String).ilike(f'%{search}%')
             )
         )
+
+    # Orden inicial de la página
+    query = query.order_by(VistaAccesosCompleta.id_acceso.asc())
 
     # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)

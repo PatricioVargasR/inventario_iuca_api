@@ -50,7 +50,7 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
             estado_bool = estado.lower() == "true"
             query = query.filter_by(activo = estado_bool)
 
-        paginated = query.order_by(campo_orden.desc()).paginate(
+        paginated = query.order_by(campo_orden.asc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
 
