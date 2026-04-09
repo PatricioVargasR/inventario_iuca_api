@@ -10,7 +10,7 @@
 # app.py - Aplicación Principal
 # ============================================
 
-from flask import Flask
+from flask import Flask, request
 from utils.extesions import db, jwt
 from flask_cors import CORS
 from config import Config
@@ -33,6 +33,11 @@ def create_app(config_class=Config):
             "allow_headers": ["Content-Type", "Authorization"]
         }
     })
+
+    @app.before_request
+    def handle_options():
+        if request.method == 'OPTIONS':
+            return '', 204
 
     # Registrar blueprints
     from routes.auth_routes import auth_bp
