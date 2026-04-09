@@ -10,8 +10,6 @@
 # app.py - Aplicación Principal
 # ============================================
 
-#TODO: AÑADIR FILTRO DE ASC Y DESC
-
 from flask import Flask
 from utils.extesions import db, jwt
 from flask_cors import CORS
@@ -30,7 +28,7 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     CORS(app, resources={
         r"/api/*": {
-            "origins": os.getenv('ORIGINS').split(','),
+            "origins": os.getenv('ORIGINS').split(','), 
             "methods": ["GET", "POST", "PUT", "DELETE"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
