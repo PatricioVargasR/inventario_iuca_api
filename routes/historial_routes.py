@@ -207,7 +207,7 @@ def get_historial():
                     query = query.order_by(column.asc())
 
         # Ordenar por fecha descendente
-        query = query.order_by(VistaHistorialCompleta.id_historial.asc())
+        query = query.order_by(VistaHistorialCompleta.id_historial.desc())
 
         # ── Paginación ──────────────────────────────────────────────────
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -223,10 +223,16 @@ def get_historial():
             # Si todos los campos cambiados son ignorados, omitir
             return not campos_cambiados.issubset(CAMPOS_IGNORADOS)
 
+        start = (paginated.page - 1) * paginated.per_page + 1
+
+        items_visibles = [item for item in paginated.items if es_visible(item)]
+
         movimientos_filtrados = [
-            item.to_dict_detallado()
-            for item in paginated.items
-            if es_visible(item)
+            {
+                **item.to_dict_detallado(),
+                "index": i
+            }
+            for i, item in enumerate(items_visibles, start=start)
         ]
 
         return jsonify({
