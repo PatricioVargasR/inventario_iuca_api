@@ -25,10 +25,8 @@ class CatArea(db.Model, VersionMixin):
             'descripcion': self.descripcion,
             'fecha_creacion': self.fecha_creacion
         }
-
         if include_version:
             data.update(self.version_dict())
-
         return data
 
 
@@ -42,18 +40,15 @@ class CatTipoActivo(db.Model, VersionMixin):
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self, include_version=True):
-        data =  {
+        data = {
             'id_tipo_activo': self.id_tipo_activo,
             'nombre_tipo': self.nombre_tipo,
             'activo': self.activo,
             'descripcion': self.descripcion,
             'fecha_creacion': self.fecha_creacion
         }
-
-        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
             data.update(self.version_dict())
-
         return data
 
 
@@ -76,11 +71,8 @@ class CatEstado(db.Model, VersionMixin):
             'color_hex': self.color_hex,
             'fecha_creacion': self.fecha_creacion
         }
-
-        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
             data.update(self.version_dict())
-
         return data
 
 class CatTipoMobiliario(db.Model, VersionMixin):
@@ -99,13 +91,9 @@ class CatTipoMobiliario(db.Model, VersionMixin):
             'activo': self.activo,
             'descripcion': self.descripcion,
             'fecha_creacion': self.fecha_creacion
-
         }
-
-        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
             data.update(self.version_dict())
-
         return data
 
 # ============================================
@@ -122,7 +110,6 @@ class Usuario(db.Model, VersionMixin):
     area_id = db.Column(db.Integer, db.ForeignKey('cat_areas.id_area'))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
-    # Relaciones
     area = db.relationship(
         'CatArea',
         backref=db.backref('usuarios', passive_deletes=True)
@@ -138,11 +125,8 @@ class Usuario(db.Model, VersionMixin):
             'area': self.area.nombre_area if self.area else None,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
-
-        # INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
             data.update(self.version_dict())
-
         return data
 
 class Acceso(db.Model, VersionMixin):
@@ -156,13 +140,11 @@ class Acceso(db.Model, VersionMixin):
     ultimo_acceso = db.Column(db.DateTime)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
 
-    # NUEVOS CAMPOS PARA CONTROL DE SESIÓN
-    token_sesion_activa = db.Column(db.String(500))  # Token JWT de la sesión activa
-    fecha_inicio_sesion = db.Column(db.DateTime)     # Cuándo inició la sesión
-    ip_sesion = db.Column(db.String(45))             # IP de la sesión activa
+    token_sesion_activa = db.Column(db.String(500))
+    fecha_inicio_sesion = db.Column(db.DateTime)
+    ip_sesion = db.Column(db.String(45))
     user_agent_sesion = db.Column(db.String(500))
 
-    # Relaciones
     area = db.relationship(
         'CatArea',
         foreign_keys=[area_id],
@@ -181,18 +163,13 @@ class Acceso(db.Model, VersionMixin):
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
-
         if include_password:
             data['contrasena_hash'] = self.contrasena_hash
-
-        # ✅ INCLUIR INFORMACIÓN DE VERSIÓN Y EDICIÓN
         if include_version:
             data.update(self.version_dict())
-
         return data
 
     def permisos_dict(self):
-        """Devuelve los permisos del usuario indexados por módulo."""
         return {p.modulo: p.to_dict() for p in self.permisos}
 
 class Permiso(db.Model):
@@ -210,7 +187,6 @@ class Permiso(db.Model):
     __table_args__ = (
         db.UniqueConstraint('acceso_id', 'modulo', name='uq_acceso_modulo'),
     )
-
 
     def to_dict(self):
         return {
@@ -238,18 +214,16 @@ class EquipoComputo(db.Model, VersionMixin):
     numero_serie = db.Column(db.String(50), unique=True)
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
     observaciones = db.Column(db.Text)
-    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
-    # Relaciones
     tipo_activo = db.relationship('CatTipoActivo')
     estado = db.relationship('CatEstado')
-    usuario_asignado = db.relationship('Usuario')
     especificaciones = db.relationship('EspecificacionEquipo', backref='equipo', cascade='all, delete-orphan')
+    responsables = db.relationship('EquipoResponsable', backref='equipo', cascade='all, delete-orphan')
 
-    def to_dict(self, include_specs=False, include_version=True):
+    def to_dict(self, include_specs=False, include_responsables=True, include_version=True):
         data = {
             'id_activo': self.id_activo,
             'tipo_activo_id': self.tipo_activo_id,
@@ -262,20 +236,17 @@ class EquipoComputo(db.Model, VersionMixin):
             'estado': self.estado.nombre_estado if self.estado else None,
             'color_estado': self.estado.color_hex if self.estado else None,
             'observaciones': self.observaciones,
-            'usuario_asignado_id': self.usuario_asignado_id,
-            'responsable': self.usuario_asignado.nombre_usuario if self.usuario_asignado else None,
             'sucursal_nombre': self.sucursal_nombre,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
-
         if include_version:
             data.update(self.version_dict())
-
-
         if include_specs:
             data['especificaciones'] = [spec.to_dict() for spec in self.especificaciones]
-
+        if include_responsables:
+            data['responsables'] = [resp.to_dict() for resp in self.responsables]
+            data['responsables_ids'] = [resp.usuario_id for resp in self.responsables]
         return data
 
 
@@ -299,6 +270,30 @@ class EspecificacionEquipo(db.Model):
         }
 
 
+class EquipoResponsable(db.Model):
+    __tablename__ = 'equipos_responsables'
+
+    id_equipo_responsable = db.Column(db.Integer, primary_key=True)
+    equipo_id = db.Column(db.Integer, db.ForeignKey('equipos_computo.id_activo', ondelete='CASCADE'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario', ondelete='CASCADE'), nullable=False)
+    fecha_asignacion = db.Column(db.DateTime, default=datetime.now)
+
+    __table_args__ = (
+        db.UniqueConstraint('equipo_id', 'usuario_id', name='uq_equipo_usuario'),
+    )
+
+    usuario = db.relationship('Usuario')
+
+    def to_dict(self):
+        return {
+            'id_equipo_responsable': self.id_equipo_responsable,
+            'equipo_id': self.equipo_id,
+            'usuario_id': self.usuario_id,
+            'nombre_usuario': self.usuario.nombre_usuario if self.usuario else None,
+            'fecha_asignacion': self.fecha_asignacion.isoformat() if self.fecha_asignacion else None
+        }
+
+
 class Mobiliario(db.Model, VersionMixin):
     __tablename__ = 'mobiliario'
 
@@ -310,17 +305,15 @@ class Mobiliario(db.Model, VersionMixin):
     caracteristicas = db.Column(db.Text)
     observaciones = db.Column(db.Text)
     estado_id = db.Column(db.Integer, db.ForeignKey('cat_estados.id_estado'))
-    usuario_asignado_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario'), nullable=True)
     sucursal_nombre = db.Column(db.String(50), default='Tulancingo')
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     fecha_modificacion = db.Column(db.DateTime, default=datetime.now)
 
-    # Relaciones
     tipo_mobiliario = db.relationship('CatTipoMobiliario')
     estado = db.relationship('CatEstado')
-    usuario_asignado = db.relationship('Usuario')
+    responsables = db.relationship('MobiliarioResponsable', backref='mobiliario', cascade='all, delete-orphan')
 
-    def to_dict(self, include_version=True):
+    def to_dict(self, include_responsables=True, include_version=True):
         data = {
             'id_mueble': self.id_mueble,
             'tipo_mobiliario_id': self.tipo_mobiliario_id,
@@ -333,27 +326,47 @@ class Mobiliario(db.Model, VersionMixin):
             'estado_id': self.estado_id,
             'estado': self.estado.nombre_estado if self.estado else None,
             'color_estado': self.estado.color_hex if self.estado else None,
-            'usuario_asignado_id': self.usuario_asignado_id,
-            'responsable': self.usuario_asignado.nombre_usuario if self.usuario_asignado else None,
             'sucursal_nombre': self.sucursal_nombre,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
         }
-
         if include_version:
             data.update(self.version_dict())
-
+        if include_responsables:
+            data['responsables'] = [resp.to_dict() for resp in self.responsables]
+            data['responsables_ids'] = [resp.usuario_id for resp in self.responsables]
         return data
+
+
+class MobiliarioResponsable(db.Model):
+    __tablename__ = 'mobiliario_responsables'
+
+    id_mueble_responsable = db.Column(db.Integer, primary_key=True)
+    mueble_id = db.Column(db.Integer, db.ForeignKey('mobiliario.id_mueble', ondelete='CASCADE'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id_usuario', ondelete='CASCADE'), nullable=False)
+    fecha_asignacion = db.Column(db.DateTime, default=datetime.now)
+
+    __table_args__ = (
+        db.UniqueConstraint('mueble_id', 'usuario_id', name='uq_mueble_usuario'),
+    )
+
+    usuario = db.relationship('Usuario')
+
+    def to_dict(self):
+        return {
+            'id_mueble_responsable': self.id_mueble_responsable,
+            'mueble_id': self.mueble_id,
+            'usuario_id': self.usuario_id,
+            'nombre_usuario': self.usuario.nombre_usuario if self.usuario else None,
+            'fecha_asignacion': self.fecha_asignacion.isoformat() if self.fecha_asignacion else None
+        }
+
 
 # ============================================
 # VISTAS
 # ============================================
 
 class VistaEquiposCompleta(db.Model):
-    """
-    Vista completa de equipos con información relacionada
-    Corresponde a: vista_equipos_completa
-    """
     __tablename__ = 'vista_equipos_completa'
     __table_args__ = {'info': {'is_view': True}}
 
@@ -367,13 +380,13 @@ class VistaEquiposCompleta(db.Model):
     color_estado = db.Column(db.String(7))
     observaciones = db.Column(db.Text)
     sucursal = db.Column(db.String(50))
-    responsable = db.Column(db.String(100))
-    numero_nomina = db.Column(db.String(10))
-    puesto = db.Column(db.String(80))
-    area = db.Column(db.String(50))
     fecha_creacion = db.Column(db.DateTime)
     fecha_modificacion = db.Column(db.DateTime)
     especificaciones = db.Column(db.Text)
+    # La vista ahora devuelve el JSON array de responsables
+    responsables = db.Column(JSON)
+    editado_por = db.Column(db.Integer)
+    version = db.Column(db.Integer)
 
     def to_dict(self):
         return {
@@ -387,21 +400,20 @@ class VistaEquiposCompleta(db.Model):
             'color_estado': self.color_estado,
             'observaciones': self.observaciones,
             'sucursal': self.sucursal,
-            'responsable': self.responsable,
-            'numero_nomina': self.numero_nomina,
-            'puesto': self.puesto,
-            'area': self.area,
+            # Compatibilidad: primer responsable como string
+            'responsable': self.responsables[0]['nombre_usuario'] if self.responsables else None,
+            # Lista completa de responsables
+            'responsables': self.responsables or [],
+            'responsables_ids': [r['id_usuario'] for r in (self.responsables or [])],
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None,
-            'especificaciones': self.especificaciones
+            'especificaciones': self.especificaciones,
+            'editado_por': self.editado_por,
+            'version': self.version,
         }
 
 
 class VistaMobiliarioCompleta(db.Model):
-    """
-    Vista completa de mobiliario con información relacionada
-    Corresponde a: vista_mobiliario_completa
-    """
     __tablename__ = 'vista_mobiliario_completa'
     __table_args__ = {'info': {'is_view': True}}
 
@@ -415,12 +427,11 @@ class VistaMobiliarioCompleta(db.Model):
     estado = db.Column(db.String(20))
     color_estado = db.Column(db.String(7))
     sucursal = db.Column(db.String(50))
-    responsable = db.Column(db.String(100))
-    numero_nomina = db.Column(db.String(10))
-    puesto = db.Column(db.String(80))
-    area = db.Column(db.String(50))
     fecha_creacion = db.Column(db.DateTime)
     fecha_modificacion = db.Column(db.DateTime)
+    responsables = db.Column(JSON)
+    editado_por = db.Column(db.Integer)
+    version = db.Column(db.Integer)
 
     def to_dict(self):
         return {
@@ -434,20 +445,17 @@ class VistaMobiliarioCompleta(db.Model):
             'estado': self.estado,
             'color_estado': self.color_estado,
             'sucursal': self.sucursal,
-            'responsable': self.responsable,
-            'numero_nomina': self.numero_nomina,
-            'puesto': self.puesto,
-            'area': self.area,
+            'responsable': self.responsables[0]['nombre_usuario'] if self.responsables else None,
+            'responsables': self.responsables or [],
+            'responsables_ids': [r['id_usuario'] for r in (self.responsables or [])],
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None
+            'fecha_modificacion': self.fecha_modificacion.isoformat() if self.fecha_modificacion else None,
+            'editado_por': self.editado_por,
+            'version': self.version,
         }
 
 
 class VistaUsuariosCompleta(db.Model):
-    """
-    Vista de usuarios responsables con conteo de bienes asignados
-    Corresponde a: vista_usuarios_completa
-    """
     __tablename__ = 'vista_usuarios_completa'
     __table_args__ = {'info': {'is_view': True}}
 
@@ -474,22 +482,15 @@ class VistaUsuariosCompleta(db.Model):
 
 
 class VistaAccesosCompleta(db.Model):
-    """
-    Vista detallada de accesos con módulos y permisos
-    Corresponde a: vista_accesos_completa
-    """
     __tablename__ = 'vista_accesos_completa'
     __table_args__ = {'info': {'is_view': True}}
 
-    # Datos del usuario
     id_acceso = db.Column(db.Integer, primary_key=True)
     nombre_usuario = db.Column(db.String(100))
     correo_electronico = db.Column(db.String(100))
     area = db.Column(db.String(50))
     fecha_creacion = db.Column(db.DateTime)
     ultimo_acceso = db.Column(db.DateTime)
-
-    # Datos del módulo
     permisos = db.Column(JSON)
 
     def to_dict(self):
@@ -502,10 +503,9 @@ class VistaAccesosCompleta(db.Model):
             'ultimo_acceso': self.ultimo_acceso.isoformat() if self.ultimo_acceso else None,
             'permisos': self.permisos
         }
+
+
 class VistaHistorialCompleta(db.Model):
-    """
-    Vista completa del historial con el nombre del usuario
-    """
     __tablename__ = 'vista_historial_completa'
     __table_args__ = {'info': {'is_view': True}}
 
@@ -531,84 +531,57 @@ class VistaHistorialCompleta(db.Model):
         }
 
     def to_dict_detallado(self):
-        """Versión con cambios formateados de manera legible"""
         resultado = self.to_dict()
-
         if self.cambios:
             resultado['cambios_detallados'] = self._formatear_cambios()
-
         return resultado
 
     def _formatear_cambios(self):
-        """Convierte los cambios JSON en un formato legible"""
         if not self.cambios:
             return []
-
         cambios_formateados = []
-
         for campo, valores in self.cambios.items():
             detalle = {
                 'campo': campo,
                 'campo_legible': self._nombre_campo_legible(campo)
             }
-
             if isinstance(valores, dict):
                 if 'old' in valores:
                     detalle['valor_anterior'] = self._obtener_valor_legible(campo, valores['old'])
                 if 'new' in valores:
                     detalle['valor_nuevo'] = self._obtener_valor_legible(campo, valores['new'])
-
             cambios_formateados.append(detalle)
         return cambios_formateados
 
     def _nombre_campo_legible(self, campo):
-        """Convierte nombres de campos técnicos a nombres legibles"""
         return CAMPOS_LEGIBLES.get(campo, campo.replace('_', ' ').title())
 
     def _obtener_valor_legible(self, campo, valor):
-        """Convierte IDs en nombres legibles consultando catálogos"""
         if valor is None:
             return None
-
         try:
-            # Estado
             if campo == 'estado_id':
                 estado = CatEstado.query.get(int(valor))
                 return estado.nombre_estado if estado else valor
-
-            # Usuario asignado
-            elif campo == 'usuario_asignado_id':
-                usuario = Usuario.query.get(int(valor))
-                return usuario.nombre_usuario if usuario else valor
-
-            # Tipo de activo
             elif campo == 'tipo_activo_id':
                 tipo = CatTipoActivo.query.get(int(valor))
                 return tipo.nombre_tipo if tipo else valor
-
-            # Tipo de mobiliario
             elif campo == 'tipo_mobiliario_id':
                 tipo = CatTipoMobiliario.query.get(int(valor))
                 return tipo.nombre_tipo if tipo else valor
-
-            # Área
             elif campo == 'area_id':
                 area = CatArea.query.get(int(valor))
                 return area.nombre_area if area else valor
-
-            # Usuario que modificó/creó
             elif campo in ('creado_por', 'modificado_por'):
                 acceso = Acceso.query.get(int(valor))
                 return acceso.nombre_usuario if acceso else valor
-
             else:
                 return valor
-
         except (ValueError, TypeError):
             return valor
 
+
 class BloqueoActivo(db.Model):
-    """Tabla para gestionar bloqueos de edición/eliminación en tiempo real."""
     __tablename__ = 'bloqueos_activos'
 
     id_bloqueo = db.Column(db.Integer, primary_key=True)
@@ -616,7 +589,7 @@ class BloqueoActivo(db.Model):
     registro_id = db.Column(db.Integer, nullable=False)
     usuario_id = db.Column(db.Integer, db.ForeignKey('acceso.id_acceso', ondelete='CASCADE'), nullable=False)
     nombre_usuario = db.Column(db.String(100), nullable=False)
-    tipo_bloqueo = db.Column(db.String(20), default='edicion', nullable=False)  # 'edicion' o 'eliminacion'
+    tipo_bloqueo = db.Column(db.String(20), default='edicion', nullable=False)
     fecha_bloqueo = db.Column(db.DateTime, default=datetime.now)
     expira_en = db.Column(db.DateTime, nullable=False)
     ip_usuario = db.Column(db.String(45))

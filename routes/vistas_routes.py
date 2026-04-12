@@ -22,33 +22,35 @@ vistas_bp = Blueprint('vistas', __name__)
 @require_permission('computo', 'puede_leer')
 def get_vista_equipos_completa():
     """Obtener vista completa de equipos con toda la información relacionada"""
-    # Parámetros de filtro
     tipo_activo = request.args.get('tipo_activo_id')
     estado = request.args.get('estado_id')
-    area = request.args.get('area')
-    responsable = request.args.get('usuario_id')
+    # Soporta múltiples responsables: ?usuario_id=1&usuario_id=2 o ?usuario_id=1,2
+    responsables_raw = request.args.getlist('usuario_id')
     sort_by = request.args.get('sort_by')
     sort_dir = request.args.get('sort_dir')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Query base usando el modelo
+    # Normalizar lista de IDs (puede venir como "1,2,3" o múltiples parámetros)
+    responsables_ids = _parse_ids_list(responsables_raw)
+
     query = VistaEquiposCompleta.query
 
-
-    # Aplicar filtros
     if tipo_activo:
         query = query.filter(VistaEquiposCompleta.tipo_activo == tipo_activo)
 
     if estado:
         query = query.filter(VistaEquiposCompleta.estado == estado)
 
-    if area:
-        query = query.filter(VistaEquiposCompleta.area == area)
-
-    if responsable:
-        query = query.filter(VistaEquiposCompleta.responsable.ilike(f'%{responsable}%'))
+    # Filtro por múltiples responsables usando subquery sobre equipos_responsables
+    if responsables_ids:
+        from models import EquipoResponsable
+        # Equipos que tienen AL MENOS UNO de los responsables seleccionados
+        subq = db.session.query(EquipoResponsable.equipo_id).filter(
+            EquipoResponsable.usuario_id.in_(responsables_ids)
+        ).subquery()
+        query = query.filter(VistaEquiposCompleta.id_activo.in_(subq))
 
     if sort_by:
         column = getattr(VistaEquiposCompleta, sort_by, None)
@@ -65,15 +67,11 @@ def get_vista_equipos_completa():
                 VistaEquiposCompleta.marca.ilike(f'%{search}%'),
                 VistaEquiposCompleta.modelo.ilike(f'%{search}%'),
                 VistaEquiposCompleta.numero_serie.ilike(f'%{search}%'),
-                VistaEquiposCompleta.responsable.ilike(f'%{search}%'),
                 cast(VistaEquiposCompleta.id_activo, String).ilike(f'%{search}%')
             )
         )
 
-    # Orden inicial de la página
     query = query.order_by(VistaEquiposCompleta.id_activo.asc())
-
-    # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -108,21 +106,20 @@ def get_equipo_completo(id):
 @require_permission('mobiliario', 'puede_leer')
 def get_vista_mobiliario_completa():
     """Obtener vista completa de mobiliario con toda la información relacionada"""
-    # Parámetros de filtro
     tipo_mobiliario = request.args.get('tipo_mobiliario_id')
     estado = request.args.get('estado_id')
     area = request.args.get('area')
-    responsable = request.args.get('usuario_id')
+    responsables_raw = request.args.getlist('usuario_id')
     sort_by = request.args.get('sort_by')
     sort_dir = request.args.get('sort_dir', 'asc')
     search = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Query base usando el modelo
+    responsables_ids = _parse_ids_list(responsables_raw)
+
     query = VistaMobiliarioCompleta.query
 
-    # Aplicar filtros
     if tipo_mobiliario:
         query = query.filter(VistaMobiliarioCompleta.tipo_mobiliario == tipo_mobiliario)
 
@@ -132,8 +129,13 @@ def get_vista_mobiliario_completa():
     if area:
         query = query.filter(VistaMobiliarioCompleta.area == area)
 
-    if responsable:
-        query = query.filter(VistaMobiliarioCompleta.responsable.ilike(f'%{responsable}%'))
+    # Filtro por múltiples responsables
+    if responsables_ids:
+        from models import MobiliarioResponsable
+        subq = db.session.query(MobiliarioResponsable.mueble_id).filter(
+            MobiliarioResponsable.usuario_id.in_(responsables_ids)
+        ).subquery()
+        query = query.filter(VistaMobiliarioCompleta.id_mueble.in_(subq))
 
     if sort_by:
         column = getattr(VistaMobiliarioCompleta, sort_by, None)
@@ -149,17 +151,12 @@ def get_vista_mobiliario_completa():
                 VistaMobiliarioCompleta.marca.ilike(f'%{search}%'),
                 VistaMobiliarioCompleta.modelo.ilike(f'%{search}%'),
                 VistaMobiliarioCompleta.color.ilike(f'%{search}%'),
-                VistaMobiliarioCompleta.responsable.ilike(f'%{search}%'),
                 VistaMobiliarioCompleta.tipo_mobiliario.ilike(f'%{search}%'),
                 cast(VistaMobiliarioCompleta.id_mueble, String).ilike(f'%{search}%')
-
             )
         )
 
-    # Orden inicial de la página
     query = query.order_by(VistaMobiliarioCompleta.id_mueble.asc())
-
-    # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -200,10 +197,8 @@ def get_vista_responsables_completa():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Query base usando el modelo
     query = VistaUsuariosCompleta.query
 
-    # Aplicar filtros
     if area:
         query = query.filter(VistaUsuariosCompleta.area == area)
 
@@ -225,10 +220,7 @@ def get_vista_responsables_completa():
             else:
                 query = query.order_by(column.asc())
 
-    # Orden inicial de la página
     query = query.order_by(VistaUsuariosCompleta.id_usuario.asc())
-
-    # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -270,10 +262,8 @@ def get_vista_accesos_completa():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Query base
     query = VistaAccesosCompleta.query
 
-    # Filtro por área
     if area:
         query = query.filter(VistaAccesosCompleta.area == area)
 
@@ -285,12 +275,10 @@ def get_vista_accesos_completa():
             else:
                 query = query.order_by(column.asc())
 
-    # Filtro por permisos
     if permisos_param:
         try:
             permisos_filtro = json.loads(permisos_param)
 
-            # Mapeo de nombres del frontend (puede_leer) al backend (leer)
             mapeo_permisos = {
                 'puede_leer': 'leer',
                 'puede_crear': 'crear',
@@ -298,17 +286,14 @@ def get_vista_accesos_completa():
                 'puede_eliminar': 'eliminar'
             }
 
-            # Construir condiciones para cada módulo
             condiciones_modulos = []
 
             for modulo, permisos_requeridos in permisos_filtro.items():
                 condiciones_permisos = []
 
                 for permiso_frontend in permisos_requeridos:
-                    # Convertir "puede_leer" -> "leer"
                     permiso_db = mapeo_permisos.get(permiso_frontend, permiso_frontend)
 
-                    # Buscar en el array JSON
                     condicion_sql = text("""
                         EXISTS (
                             SELECT 1
@@ -320,17 +305,15 @@ def get_vista_accesos_completa():
 
                     condiciones_permisos.append(condicion_sql)
 
-                # OR entre permisos del mismo módulo (tiene al menos uno)
                 if condiciones_permisos:
                     condiciones_modulos.append(and_(*condiciones_permisos))
 
-            # AND entre módulos (debe cumplir todos los módulos seleccionados)
             if condiciones_modulos:
                 query = query.filter(and_(*condiciones_modulos))
 
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError):
             pass
-    # Búsqueda de texto
+
     if search:
         query = query.filter(
             or_(
@@ -341,10 +324,7 @@ def get_vista_accesos_completa():
             )
         )
 
-    # Orden inicial de la página
     query = query.order_by(VistaAccesosCompleta.id_acceso.asc())
-
-    # Paginación
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     return jsonify({
@@ -368,3 +348,23 @@ def get_acceso_completo(id):
 
     return jsonify(acceso.to_dict()), 200
 
+
+# ============================================
+# HELPER
+# ============================================
+
+def _parse_ids_list(raw_list):
+    """
+    Normaliza una lista de IDs que puede venir como:
+    - Múltiples params: ?usuario_id=1&usuario_id=2
+    - Valores con coma: ?usuario_id=1,2,3
+    - Mezcla de ambos
+    Retorna un set de enteros o None si está vacío.
+    """
+    ids = set()
+    for item in raw_list:
+        for part in str(item).split(','):
+            part = part.strip()
+            if part.isdigit():
+                ids.add(int(part))
+    return ids if ids else None
