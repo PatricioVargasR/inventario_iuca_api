@@ -167,3 +167,22 @@ CATALOGO_CAMPOS_EDITABLES: dict[str, list[str]] = {
         'activo',
     ],
 }
+
+# Mapeo de las tablas
+TIPO_DE_REGISTRO: dict[str, str] = {
+    'computo':              'equipos_computo',
+    'mobiliario':           'mobiliario',
+    'acceso':               'acceso',
+    'usuario':              'usuario',
+    'cat_areas':            'cat_areas',
+    'cat_estados':          'cat_estados',
+    'cat_tipos_activo':     'cat_tipos_activo',
+    'cat_tipos_mobiliario': 'cat_tipos_mobiliario',
+}
+
+# Mapeo de los tipos de movimiento
+OPERACION_MOVIMIENTO: dict[str, str] = {
+    'creacion':    'INSERT',
+    'edicion':     'UPDATE',
+    'eliminacion': 'DELETE'
+}

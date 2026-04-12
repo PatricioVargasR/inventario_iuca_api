@@ -6,7 +6,8 @@ from sqlalchemy import or_
 from datetime import datetime
 from utils.constants import (
     TABLAS_VISIBLES, CAMPOS_IGNORADOS,
-    TABLA_ALIASES, OPERACION_ALIASES
+    TABLA_ALIASES, OPERACION_ALIASES,
+    TIPO_DE_REGISTRO, OPERACION_MOVIMIENTO
 )
 
 historial_bp = Blueprint('historial', __name__)
@@ -94,23 +95,11 @@ def get_historial():
             query = query.filter(VistaHistorialCompleta.usuario_id == usuario_id)
 
         if tipo_registro:
-            tabla_map = {
-                'computo':     'equipos_computo',
-                'mobiliario':  'mobiliario',
-                'acceso':      'acceso',
-                'usuario':     'usuario',
-                'cat_areas':   'cat_areas',
-            }
-            tabla_nombre = tabla_map.get(tipo_registro.lower(), tipo_registro)
+            tabla_nombre = TIPO_DE_REGISTRO.get(tipo_registro.lower(), tipo_registro)
             query = query.filter(VistaHistorialCompleta.tabla == tabla_nombre)
 
         if tipo_movimiento:
-            operacion_map = {
-                'creacion':   'INSERT',
-                'edicion':    'UPDATE',
-                'eliminacion': 'DELETE'
-            }
-            operacion_nombre = operacion_map.get(tipo_movimiento.lower(), tipo_movimiento.upper())
+            operacion_nombre = OPERACION_MOVIMIENTO.get(tipo_movimiento.lower(), tipo_movimiento.upper())
             query = query.filter(VistaHistorialCompleta.operacion == operacion_nombre)
 
         if fecha_desde:

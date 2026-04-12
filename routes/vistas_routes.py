@@ -212,7 +212,8 @@ def get_vista_responsables_completa():
             or_(
                 VistaUsuariosCompleta.nombre_usuario.ilike(f'%{search}%'),
                 VistaUsuariosCompleta.puesto.ilike(f'%{search}%'),
-                cast(VistaUsuariosCompleta.id_usuario, String).ilike(f'%{search}%')
+                cast(VistaUsuariosCompleta.id_usuario, String).ilike(f'%{search}%'),
+                cast(VistaUsuariosCompleta.numero_nomina, String).ilike(f'%{search}%')
             )
         )
 
