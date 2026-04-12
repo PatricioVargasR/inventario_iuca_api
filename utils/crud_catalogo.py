@@ -6,6 +6,7 @@ from utils.extesions import db
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.validators import ValidationError, handle_db_error
 from sqlalchemy import String, cast
+from utils.constants import CATALOGO_CAMPO_NOMBRE, CATALOGO_CAMPOS_EDITABLES
 
 def crud_catalogo(modelo, validador, nombre: str, tabla: str,
                   campo_busqueda: str,
@@ -191,33 +192,8 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
 
 # ── Helpers internos ──────────────────────────────────────────────────────────
 
-# Mapeo: modelo → campo que actúa como nombre único
-_NOMBRE_CAMPO = {
-    'CatArea':            'nombre_area',
-    'CatEstado':          'nombre_estado',
-    'CatTipoActivo':      'nombre_tipo',
-    'CatTipoMobiliario':  'nombre_tipo',
-}
-
-# Campos editables por modelo (los que se asignan en create/update)
-_CAMPOS_EDITABLES = {
-    'CatArea': [
-        'nombre_area', 'descripcion', 'activo'
-    ],
-    'CatEstado': [
-        'nombre_estado', 'descripcion', 'activo', 'color_hex'
-    ],
-    'CatTipoActivo': [
-        'nombre_tipo', 'descripcion', 'activo'
-    ],
-    'CatTipoMobiliario': [
-        'nombre_tipo', 'descripcion', 'activo'
-    ],
-}
-
-
 def _campo_nombre(modelo) -> str:
-    return _NOMBRE_CAMPO[modelo.__name__]
+    return CATALOGO_CAMPO_NOMBRE[modelo.__name__]
 
 
 def _build_fields(modelo, data: dict) -> dict:
@@ -226,7 +202,7 @@ def _build_fields(modelo, data: dict) -> dict:
     Aplica .strip() a strings automáticamente.
     """
     resultado = {}
-    for campo in _CAMPOS_EDITABLES.get(modelo.__name__, []):
+    for campo in CATALOGO_CAMPOS_EDITABLES.get(modelo.__name__, []):
         if campo not in data:
             continue
         valor = data[campo]

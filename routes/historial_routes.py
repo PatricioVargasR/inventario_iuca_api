@@ -4,6 +4,10 @@ from models import VistaHistorialCompleta
 from utils.decorators import require_permission
 from sqlalchemy import or_
 from datetime import datetime
+from utils.constants import (
+    TABLAS_VISIBLES, CAMPOS_IGNORADOS,
+    TABLA_ALIASES, OPERACION_ALIASES
+)
 
 historial_bp = Blueprint('historial', __name__)
 
@@ -33,39 +37,6 @@ def get_historial():
         sort_by = request.args.get('sort_by')
         sort_dir = request.args.get('sort_dir', 'asc')
 
-        # ── Tablas que SÍ se muestran en el historial ──────────────────
-        TABLAS_VISIBLES = {
-            'equipos_computo',
-            'mobiliario',
-            'usuario',
-            'acceso',
-            'cat_areas',
-            'cat_estados',
-            'cat_tipos_activo',
-            'cat_tipos_mobiliario',
-        }
-
-        # ── Campos que NO se muestran aunque la tabla sí sea visible ───
-        # Si un UPDATE solo contiene campos de esta lista, se omite el registro
-        CAMPOS_IGNORADOS = {
-            'ultimo_acceso',
-            'fecha_modificacion',
-            'modificado_por',
-            'version',
-            'token_recuperacion',
-            'token_expiracion',
-            'intentos_fallidos',
-            'bloqueado_hasta',
-            # ── Campos de sesión ──
-            'ip_sesion',
-            'ip_ultimo_acceso',
-            'user_agent',
-            'sesion_activa',
-            'refresh_token',
-            'ultimo_login',
-            'contrasena_hash'
-        }
-
         # Query base — solo tablas visibles
         query = VistaHistorialCompleta.query.filter(
             VistaHistorialCompleta.tabla.in_(TABLAS_VISIBLES)
@@ -81,47 +52,6 @@ def get_historial():
         # ── Filtros ─────────────────────────────────────────────────────
         if search:
             search_lower = search.lower()
-
-            # Mapeo inverso: términos legibles → valores técnicos en BD
-            TABLA_ALIASES = {
-                'computo':      'equipos_computo',
-                'cómputo':      'equipos_computo',
-                'equipo':       'equipos_computo',
-                'mobiliario':   'mobiliario',
-                'mueble':       'mobiliario',
-                'acceso':       'acceso',
-                'usuario':      'usuario',
-                'responsable':  'usuario',
-                'área':         'cat_areas',
-                'area':         'cat_areas',
-                'estado':       'cat_estados',
-                'tipo de activo':    'cat_tipos_activo',
-                'tipos de activo':   'cat_tipos_activo',
-                'tipo activo':       'cat_tipos_activo',
-                'tipo de mobiliario':    'cat_tipos_mobiliario',
-                'tipos de mobiliario':   'cat_tipos_mobiliario',
-                'tipo mobiliario':       'cat_tipos_mobiliario',
-                'catálogo':     None,   # coincide con todas las cat_*
-                'catalogo':     None,
-            }
-
-            OPERACION_ALIASES = {
-                'creacion':   'INSERT',
-                'creación':   'INSERT',
-                'crear':      'INSERT',
-                'nuevo':      'INSERT',
-                'insert':     'INSERT',
-                'edicion':    'UPDATE',
-                'edición':    'UPDATE',
-                'editar':     'UPDATE',
-                'actualizar': 'UPDATE',
-                'update':     'UPDATE',
-                'eliminacion': 'DELETE',
-                'eliminación': 'DELETE',
-                'eliminar':   'DELETE',
-                'borrar':     'DELETE',
-                'delete':     'DELETE',
-            }
 
             # Resolver si el término coincide con algún alias
             tabla_buscada     = None

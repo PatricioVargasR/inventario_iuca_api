@@ -15,6 +15,7 @@ Uso en una ruta:
 """
 
 import re
+from utils.constants import MENSAJES_FK
 
 class ValidationError(Exception):
     """Error de validación con mensaje legible y campos afectados."""
@@ -351,14 +352,6 @@ def handle_db_error(e: Exception, tabla: str = None) -> tuple:
         return 'Hay campos obligatorios sin completar', 422
 
     if error_code in ('23503', '23001'):
-        MENSAJES_FK = {
-            'usuario':     'No se puede eliminar este responsable porque tiene equipos o mobiliario asignado.',
-            'acceso':      'No se puede eliminar este acceso porque tiene permisos u otras relaciones activas.',
-            'cat_areas':   'No se puede eliminar esta área porque hay usuarios o accesos asociados a ella.',
-            'cat_estados': 'No se puede eliminar este estado porque hay equipos o mobiliario que lo usan.',
-            'cat_tipos_activo':     'No se puede eliminar este tipo porque hay equipos que lo usan.',
-            'cat_tipos_mobiliario': 'No se puede eliminar este tipo porque hay mobiliario que lo usa.',
-        }
         mensaje = MENSAJES_FK.get(tabla, 'Este registro está relacionado con otros datos y no puede eliminarse.')
         return mensaje, 409
 

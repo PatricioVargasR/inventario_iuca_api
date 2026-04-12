@@ -2,6 +2,7 @@ from app import db
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSON
 from models.mixins import VersionMixin
+from utils.constants import CAMPOS_LEGIBLES
 
 # ============================================
 # CATÁLOGOS
@@ -562,25 +563,7 @@ class VistaHistorialCompleta(db.Model):
 
     def _nombre_campo_legible(self, campo):
         """Convierte nombres de campos técnicos a nombres legibles"""
-        nombres = {
-            'estado_id': 'Estado',
-            'usuario_asignado_id': 'Usuario Asignado',
-            'tipo_activo_id': 'Tipo de Activo',
-            'tipo_mobiliario_id': 'Tipo de Mobiliario',
-            'area_id': 'Área',
-            'nombre_activo': 'Nombre',
-            'marca': 'Marca',
-            'modelo': 'Modelo',
-            'numero_serie': 'Número de Serie',
-            'observaciones': 'Observaciones',
-            'caracteristicas': 'Características',
-            'color': 'Color',
-            'nombre_usuario': 'Nombre',
-            'correo_electronico': 'Correo Electrónico',
-            'puesto': 'Puesto',
-            'numero_nomina': 'Número de Nómina'
-        }
-        return nombres.get(campo, campo.replace('_', ' ').title())
+        return CAMPOS_LEGIBLES.get(campo, campo.replace('_', ' ').title())
 
     def _obtener_valor_legible(self, campo, valor):
         """Convierte IDs en nombres legibles consultando catálogos"""

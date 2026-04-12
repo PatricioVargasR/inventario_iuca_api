@@ -1,16 +1,15 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from models import BloqueoActivo, Usuario, Acceso, Permiso
+from models import Usuario, Acceso, Permiso
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 from utils.validators import validate_responsable, validate_acceso, ValidationError, handle_db_error
 import bcrypt
 from utils.lock_required import lock_required
+from utils.constants import MODULOS_DISPONIBLES
 
 usuarios_bp = Blueprint('usuarios', __name__)
-
-MODULOS_DISPONIBLES = ['computo', 'mobiliario', 'responsable', 'catalogos', 'historial', 'acceso']
 
 # ============================================
 # RESPONSABLES (personas con bienes asignados)
