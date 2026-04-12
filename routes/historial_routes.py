@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from models import VistaHistorialCompleta
 from utils.decorators import require_permission
-from sqlalchemy import or_
+from sqlalchemy import String, cast, or_
 from datetime import datetime
 from utils.constants import (
     TABLAS_VISIBLES, CAMPOS_IGNORADOS,
@@ -54,6 +54,8 @@ def get_historial():
         if search:
             search_lower = search.lower()
 
+            print(search_lower)
+
             # Resolver si el término coincide con algún alias
             tabla_buscada     = None
             operacion_buscada = None
@@ -78,6 +80,7 @@ def get_historial():
                 VistaHistorialCompleta.registro_id.ilike(f'%{search}%'),
                 VistaHistorialCompleta.tabla.ilike(f'%{search}%'),
                 VistaHistorialCompleta.operacion.ilike(f'%{search}%'),
+                cast(VistaHistorialCompleta.id_historial, String).ilike(f'%{search}%')
             ]
 
             if tabla_buscada:
@@ -126,7 +129,7 @@ def get_historial():
                     query = query.order_by(column.asc())
 
         # Ordenar por fecha descendente
-        query = query.order_by(VistaHistorialCompleta.id_historial.desc())
+        query = query.order_by(VistaHistorialCompleta.id_historial.asc())
 
         # ── Paginación ──────────────────────────────────────────────────
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -142,16 +145,22 @@ def get_historial():
             # Si todos los campos cambiados son ignorados, omitir
             return not campos_cambiados.issubset(CAMPOS_IGNORADOS)
 
-        start = (paginated.page - 1) * paginated.per_page + 1
+        # start = (paginated.page - 1) * paginated.per_page + 1
 
-        items_visibles = [item for item in paginated.items if es_visible(item)]
+        # items_visibles = [item for item in paginated.items if es_visible(item)]
+
+        # movimientos_filtrados = [
+        #     {
+        #         **item.to_dict_detallado(),
+        #         "index": i
+        #     }
+        #     for i, item in enumerate(items_visibles, start=start)
+        # ]
 
         movimientos_filtrados = [
-            {
-                **item.to_dict_detallado(),
-                "index": i
-            }
-            for i, item in enumerate(items_visibles, start=start)
+            item.to_dict_detallado()
+            for item in paginated.items
+            if es_visible(item)
         ]
 
         return jsonify({
