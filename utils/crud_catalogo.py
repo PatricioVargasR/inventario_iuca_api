@@ -34,10 +34,20 @@ def crud_catalogo(modelo, validador, nombre: str, tabla: str,
     def get_paginado():
         search   = request.args.get('search', '').strip()
         estado   = request.args.get('estado')
+        sort_by  = request.args.get('sort_by')
+        sort_dir  = request.args.get('sort_dir')
         page     = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
 
         query = modelo.query
+
+        if sort_by:
+            column = getattr(modelo, sort_by, None)
+            if column:
+                if sort_dir == 'desc':
+                    query = query.order_by(column.desc())
+                else:
+                    query = query.order_by(column.asc())
         if search:
             query = query.filter(
                 db.or_(
