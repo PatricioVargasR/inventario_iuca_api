@@ -27,6 +27,8 @@ TABLAS_VISIBLES = {
     'cat_estados',
     'cat_tipos_activo',
     'cat_tipos_mobiliario',
+    'equipos_responsables',      # asignación/desasignación de responsables en equipos
+    'mobiliario_responsables',   # asignación/desasignación de responsables en mobiliario
 }
 
 CAMPOS_IGNORADOS = {
@@ -73,6 +75,10 @@ TABLA_ALIASES: dict[str, str | None] = {
     'tipo mobiliario':        'cat_tipos_mobiliario',
     'catálogo':               None,
     'catalogo':               None,
+    'asignacion':             'equipos_responsables',
+    'asignación':             'equipos_responsables',
+    'responsable equipo':     'equipos_responsables',
+    'responsable mueble':     'mobiliario_responsables',
 }
 
 # Términos que el usuario puede escribir → operación real en BD
@@ -96,22 +102,26 @@ OPERACION_ALIASES: dict[str, str] = {
 
 # Nombres legibles de campos técnicos (usados en historial y modelos)
 CAMPOS_LEGIBLES: dict[str, str] = {
-    'estado_id':            'Estado',
-    'usuario_asignado_id':  'Usuario Asignado',
-    'tipo_activo_id':       'Tipo de Activo',
-    'tipo_mobiliario_id':   'Tipo de Mobiliario',
-    'area_id':              'Área',
-    'nombre_activo':        'Nombre',
-    'marca':                'Marca',
-    'modelo':               'Modelo',
-    'numero_serie':         'Número de Serie',
-    'observaciones':        'Observaciones',
-    'caracteristicas':      'Características',
-    'color':                'Color',
-    'nombre_usuario':       'Nombre',
-    'correo_electronico':   'Correo Electrónico',
-    'puesto':               'Puesto',
-    'numero_nomina':        'Número de Nómina',
+    'estado_id':                'Estado',
+    'usuario_asignado_id':      'Usuario Asignado',
+    'tipo_activo_id':           'Tipo de Activo',
+    'tipo_mobiliario_id':       'Tipo de Mobiliario',
+    'area_id':                  'Área',
+    'nombre_activo':            'Nombre',
+    'marca':                    'Marca',
+    'modelo':                   'Modelo',
+    'numero_serie':             'Número de Serie',
+    'observaciones':            'Observaciones',
+    'caracteristicas':          'Características',
+    'color':                    'Color',
+    'nombre_usuario':           'Nombre',
+    'correo_electronico':       'Correo Electrónico',
+    'puesto':                   'Puesto',
+    'numero_nomina':            'Número de Nómina',
+    'equipo_id':                'Equipo',
+    'mueble_id':                'Mueble',
+    'usuario_id':               'Responsable',
+    'fecha_asignacion':         'Fecha de asignación',
 }
 
 
@@ -170,14 +180,16 @@ CATALOGO_CAMPOS_EDITABLES: dict[str, list[str]] = {
 
 # Mapeo de las tablas
 TIPO_DE_REGISTRO: dict[str, str] = {
-    'computo':              'equipos_computo',
-    'mobiliario':           'mobiliario',
-    'acceso':               'acceso',
-    'usuario':              'usuario',
-    'cat_areas':            'cat_areas',
-    'cat_estados':          'cat_estados',
-    'cat_tipos_activo':     'cat_tipos_activo',
-    'cat_tipos_mobiliario': 'cat_tipos_mobiliario',
+    'computo':                 'equipos_computo',
+    'mobiliario':              'mobiliario',
+    'acceso':                  'acceso',
+    'usuario':                 'usuario',
+    'cat_areas':               'cat_areas',
+    'cat_estados':             'cat_estados',
+    'cat_tipos_activo':        'cat_tipos_activo',
+    'cat_tipos_mobiliario':    'cat_tipos_mobiliario',
+    'equipos_responsables':    'equipos_responsables',
+    'mobiliario_responsables': 'mobiliario_responsables',
 }
 
 # Mapeo de los tipos de movimiento

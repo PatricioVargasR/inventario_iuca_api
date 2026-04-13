@@ -24,7 +24,6 @@ def get_vista_equipos_completa():
     """Obtener vista completa de equipos con toda la información relacionada"""
     tipo_activo = request.args.get('tipo_activo_id')
     estado = request.args.get('estado_id')
-    # Soporta múltiples responsables: ?usuario_id=1&usuario_id=2 o ?usuario_id=1,2
     responsables_raw = request.args.getlist('usuario_id')
     sort_by = request.args.get('sort_by')
     sort_dir = request.args.get('sort_dir')
@@ -32,7 +31,6 @@ def get_vista_equipos_completa():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Normalizar lista de IDs (puede venir como "1,2,3" o múltiples parámetros)
     responsables_ids = _parse_ids_list(responsables_raw)
 
     query = VistaEquiposCompleta.query
@@ -43,13 +41,18 @@ def get_vista_equipos_completa():
     if estado:
         query = query.filter(VistaEquiposCompleta.estado == estado)
 
-    # Filtro por múltiples responsables usando subquery sobre equipos_responsables
+    # ── Filtro AND: el equipo debe tener TODOS los responsables seleccionados ──
     if responsables_ids:
         from models import EquipoResponsable
-        # Equipos que tienen AL MENOS UNO de los responsables seleccionados
-        subq = db.session.query(EquipoResponsable.equipo_id).filter(
-            EquipoResponsable.usuario_id.in_(responsables_ids)
-        ).subquery()
+        subq = (
+            db.session.query(EquipoResponsable.equipo_id)
+            .filter(EquipoResponsable.usuario_id.in_(responsables_ids))
+            .group_by(EquipoResponsable.equipo_id)
+            .having(
+                func.count(EquipoResponsable.usuario_id.distinct()) == len(responsables_ids)
+            )
+            .subquery()
+        )
         query = query.filter(VistaEquiposCompleta.id_activo.in_(subq))
 
     if sort_by:
@@ -129,12 +132,18 @@ def get_vista_mobiliario_completa():
     if area:
         query = query.filter(VistaMobiliarioCompleta.area == area)
 
-    # Filtro por múltiples responsables
+    # ── Filtro AND: el mueble debe tener TODOS los responsables seleccionados ──
     if responsables_ids:
         from models import MobiliarioResponsable
-        subq = db.session.query(MobiliarioResponsable.mueble_id).filter(
-            MobiliarioResponsable.usuario_id.in_(responsables_ids)
-        ).subquery()
+        subq = (
+            db.session.query(MobiliarioResponsable.mueble_id)
+            .filter(MobiliarioResponsable.usuario_id.in_(responsables_ids))
+            .group_by(MobiliarioResponsable.mueble_id)
+            .having(
+                func.count(MobiliarioResponsable.usuario_id.distinct()) == len(responsables_ids)
+            )
+            .subquery()
+        )
         query = query.filter(VistaMobiliarioCompleta.id_mueble.in_(subq))
 
     if sort_by:

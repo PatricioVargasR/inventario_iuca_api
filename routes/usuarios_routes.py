@@ -45,7 +45,6 @@ def create_responsable():
     if not data:
         return jsonify({'error': 'No se recibieron datos'}), 400
 
-    # ── Validación de esquema ────────────────────────────────────
     try:
         validate_responsable(data, is_update=False)
     except ValidationError as e:
@@ -100,13 +99,11 @@ def update_responsable(id):
     if not data:
         return jsonify({'error': 'No se recibieron datos'}), 400
 
-    # ── Validación de esquema ────────────────────────────────────
     try:
         validate_responsable(data, is_update=True)
     except ValidationError as e:
         return jsonify({'error': e.message, 'campos': e.fields}), 422
 
-    # ── Control de versiones ─────────────────────────────────────
     version_cliente = data.get('version')
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Usuario, id, version_cliente)
@@ -161,10 +158,35 @@ def update_responsable(id):
 @lock_required('usuario')
 def delete_responsable(id, bloqueo):
     """Eliminar el usuario responsable"""
+    from models import EquipoResponsable, MobiliarioResponsable
 
     usuario = Usuario.query.get(id)
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
+
+    # ── Verificar asignaciones activas ───────────────────────────────
+    equipos_asignados   = EquipoResponsable.query.filter_by(usuario_id=id).count()
+    muebles_asignados   = MobiliarioResponsable.query.filter_by(usuario_id=id).count()
+
+    if equipos_asignados > 0 or muebles_asignados > 0:
+        partes = []
+        if equipos_asignados:
+            partes.append(
+                f'{equipos_asignados} equipo{"s" if equipos_asignados > 1 else ""} de cómputo'
+            )
+        if muebles_asignados:
+            partes.append(
+                f'{muebles_asignados} mueble{"s" if muebles_asignados > 1 else ""}'
+            )
+        detalle = ' y '.join(partes)
+        total = equipos_asignados + muebles_asignados
+        return jsonify({
+            'error': (
+                f'No se puede eliminar este responsable porque tiene {detalle} '
+                f'asignado{"s" if total > 1 else ""}. '
+                'Primero reasigna o elimina esos activos.'
+            )
+        }), 409
 
     try:
         db.session.delete(usuario)
@@ -232,7 +254,6 @@ def create_acceso():
     if not data:
         return jsonify({'error': 'No se recibieron datos'}), 400
 
-    # ── Validación de esquema ────────────────────────────────────
     try:
         validate_acceso(data, is_update=False)
     except ValidationError as e:
@@ -306,13 +327,11 @@ def update_acceso(id):
     if not data:
         return jsonify({'error': 'No se recibieron datos'}), 400
 
-    # ── Validación de esquema ────────────────────────────────────
     try:
         validate_acceso(data, is_update=True)
     except ValidationError as e:
         return jsonify({'error': e.message, 'campos': e.fields}), 422
 
-    # ── Control de versiones ─────────────────────────────────────
     version_cliente = data.get('version')
     if version_cliente is not None:
         es_valida, version_actual = verificar_version(Acceso, id, version_cliente)
