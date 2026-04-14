@@ -36,7 +36,8 @@ API REST del sistema de inventario institucional del IUCA – Tulancingo. Desarr
 │   ├── catalogos_routes.py # CRUD de catálogos
 │   ├── historial_routes.py # Consulta de historial de auditoría
 │   ├── vistas_routes.py    # Endpoints de vistas desnormalizadas
-│   └── concurrency_routes.py # Bloqueos de concurrencia
+│   ├── concurrency_routes.py # Bloqueos de concurrencia
+│   └── health_routes.py    # Health check
 ├── utils/
 │   ├── concurrency.py      # Lógica de bloqueos optimistas
 │   ├── constants.py        # Valores estáticos centralizados
@@ -46,6 +47,7 @@ API REST del sistema de inventario institucional del IUCA – Tulancingo. Desarr
 │   ├── extesions.py        # Instancias de db y jwt
 │   ├── historial_tracker.py# Inyección del usuario en triggers de BD
 │   ├── lock_required.py    # Decorador lock_required para DELETE
+│   ├── responsables.py     # Utilidad sync_responsables para activos
 │   └── validators.py       # Validaciones de entrada por módulo
 ├── requirements.txt
 └── vercel.json
@@ -99,6 +101,12 @@ ORIGINS=http://localhost:5173,https://tu-frontend.vercel.app
 ## 📡 Endpoints
 
 Todos los endpoints requieren autenticación JWT salvo `/api/auth/login`.
+
+### Health check — `/api/health`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/` | Verifica que la API está en funcionamiento |
 
 ### Autenticación — `/api/auth`
 
@@ -278,6 +286,7 @@ El historial almacena los cambios campo a campo en formato JSON con valores ante
 | `utils/concurrency.py` | Lógica completa de bloqueos: crear, liberar, verificar y limpiar bloqueos expirados |
 | `utils/decorators.py` | `@require_permission(modulo, accion)` para proteger endpoints |
 | `utils/lock_required.py` | `@lock_required(tabla)` para verificar bloqueo de eliminación antes de ejecutar `DELETE` |
+| `utils/responsables.py` | `sync_responsables(...)` calcula el diff entre responsables actuales y nuevos en una tabla pivote, eliminando los que ya no corresponden e insertando los faltantes; funciona con `EquipoResponsable` y `MobiliarioResponsable` |
 | `utils/constants.py` | Valores estáticos centralizados: módulos, aliases de búsqueda para historial, mensajes de FK, campos editables por catálogo |
 
 ---
@@ -288,3 +297,4 @@ El historial almacena los cambios campo a campo en formato JSON con valores ante
 - El pool de conexiones está configurado con `pool_size=10`, `pool_recycle=3600` y `pool_pre_ping=True` para mayor estabilidad.
 - Los errores de constraint de PostgreSQL (unicidad, nulo, FK, check) se traducen automáticamente a mensajes legibles en español usando el código SQLSTATE en `handle_db_error`.
 - El módulo `historial` excluye de la vista campos de solo auditoría interna (como `ultimo_acceso`, `version`, `contrasena_hash`) para no mostrar ruido innecesario en el historial visible al usuario.
+- Los endpoints de equipos y mobiliario aceptan y devuelven `responsables_ids` como array de enteros, permitiendo asignar múltiples responsables por activo.
