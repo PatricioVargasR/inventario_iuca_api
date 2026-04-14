@@ -465,8 +465,6 @@ class VistaUsuariosCompleta(db.Model):
     puesto = db.Column(db.String(80))
     area = db.Column(db.String(50))
     fecha_creacion = db.Column(db.DateTime)
-    equipos_asignados = db.Column(db.BigInteger)
-    mobiliario_asignado = db.Column(db.BigInteger)
 
     def to_dict(self):
         return {
@@ -475,9 +473,7 @@ class VistaUsuariosCompleta(db.Model):
             'nombre_usuario': self.nombre_usuario,
             'puesto': self.puesto,
             'area': self.area,
-            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'equipos_asignados': self.equipos_asignados,
-            'mobiliario_asignado': self.mobiliario_asignado
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
         }
 
 
