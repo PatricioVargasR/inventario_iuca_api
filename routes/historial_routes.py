@@ -16,8 +16,6 @@ historial_bp = Blueprint('historial', __name__)
 # Historial de Movimiento
 # ============================================
 
-historial_bp = Blueprint('historial', __name__, url_prefix='/api/historial')
-
 @historial_bp.route('/', methods=['GET'])
 @jwt_required()
 @require_permission('historial', 'puede_leer')

@@ -48,6 +48,7 @@ def create_app(config_class=Config):
     from routes.historial_routes import historial_bp
     from routes.vistas_routes import vistas_bp
     from routes.concurrency_routes import concurrency_bp
+    from routes.health_routes import health_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(equipos_bp, url_prefix='/api/equipos')
@@ -57,6 +58,7 @@ def create_app(config_class=Config):
     app.register_blueprint(historial_bp, url_prefix=('/api/historial'))
     app.register_blueprint(vistas_bp, url_prefix=('/api/vistas'))
     app.register_blueprint(concurrency_bp, url_prefix='/api/concurrency')
+    app.register_blueprint(health_bp, url_prefix='/api/health')
 
     # Manejador de errores
     from utils.error_handlers import register_error_handlers
