@@ -28,11 +28,11 @@ def get_responsables():
 @jwt_required()
 @require_permission('responsable', 'puede_leer')
 def get_responsable(id):
-    """Obtener usuario responsable por ID"""
+    """Obtener usuario responsable por ID — siempre incluye version para optimistic locking"""
     usuario = Usuario.query.get(id)
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
-    return jsonify(usuario.to_dict()), 200
+    return jsonify(usuario.to_dict(include_version=True)), 200
 
 @usuarios_bp.route('/responsables', methods=['POST'])
 @jwt_required()
@@ -74,7 +74,7 @@ def create_responsable():
 
         return jsonify({
             'mensaje': 'Responsable creado exitosamente',
-            'usuario': usuario.to_dict()
+            'usuario': usuario.to_dict(include_version=True)
         }), 201
 
     except Exception as e:
@@ -143,7 +143,7 @@ def update_responsable(id):
 
         return jsonify({
             'mensaje': 'Responsable actualizado exitosamente',
-            'usuario': usuario.to_dict()
+            'usuario': usuario.to_dict(include_version=True)
         }), 200
 
     except Exception as e:
@@ -237,7 +237,7 @@ def get_acceso(id):
     if not acceso:
         return jsonify({'error': 'Acceso no encontrado'}), 404
 
-    datos = acceso.to_dict()
+    datos = acceso.to_dict(include_version=True)
     datos['permisos'] = acceso.permisos_dict()
 
     return jsonify(datos), 200
@@ -298,7 +298,7 @@ def create_acceso():
 
         db.session.commit()
 
-        resultado = acceso.to_dict()
+        resultado = acceso.to_dict(include_version=True)
         resultado['permisos'] = acceso.permisos_dict()
 
         return jsonify({
@@ -385,7 +385,7 @@ def update_acceso(id):
 
         db.session.commit()
 
-        resultado = acceso.to_dict()
+        resultado = acceso.to_dict(include_version=True)
         resultado['permisos'] = acceso.permisos_dict()
 
         # Liberar bloqueo
