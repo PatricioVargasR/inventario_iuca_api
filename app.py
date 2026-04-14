@@ -1,13 +1,7 @@
-
 # ============================================
 # SISTEMA DE INVENTARIO IUCA - API REST
 # Framework: Flask
 # Base de Datos: PostgreSQL
-# Autor: Janneth y Patricio
-# ============================================
-
-# ============================================
-# app.py - Aplicación Principal
 # ============================================
 
 from flask import Flask, request
@@ -19,6 +13,7 @@ from sqlalchemy.engine import Engine
 from utils.historial_tracker import set_current_user_for_triggers
 import os
 
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -28,9 +23,9 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     CORS(app, resources={
         r"/*": {
-            "origins": os.getenv('ORIGINS').split(','),
+            "origins": os.getenv('ORIGINS', '').split(','),
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
+            "allow_headers": ["Content-Type", "Authorization"],
         }
     })
 
@@ -50,32 +45,35 @@ def create_app(config_class=Config):
     from routes.concurrency_routes import concurrency_bp
     from routes.health_routes import health_bp
 
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(equipos_bp, url_prefix='/api/equipos')
-    app.register_blueprint(mobiliario_bp, url_prefix='/api/mobiliario')
-    app.register_blueprint(usuarios_bp, url_prefix='/api/usuarios')
-    app.register_blueprint(catalogos_bp, url_prefix='/api/catalogos')
-    app.register_blueprint(historial_bp, url_prefix=('/api/historial'))
-    app.register_blueprint(vistas_bp, url_prefix=('/api/vistas'))
+    app.register_blueprint(auth_bp,        url_prefix='/api/auth')
+    app.register_blueprint(equipos_bp,     url_prefix='/api/equipos')
+    app.register_blueprint(mobiliario_bp,  url_prefix='/api/mobiliario')
+    app.register_blueprint(usuarios_bp,    url_prefix='/api/usuarios')
+    app.register_blueprint(catalogos_bp,   url_prefix='/api/catalogos')
+    app.register_blueprint(historial_bp,   url_prefix='/api/historial')
+    app.register_blueprint(vistas_bp,      url_prefix='/api/vistas')
     app.register_blueprint(concurrency_bp, url_prefix='/api/concurrency')
-    app.register_blueprint(health_bp, url_prefix='/api/health')
+    app.register_blueprint(health_bp,      url_prefix='/api/health')
 
-    # Manejador de errores
+    # Manejadores de errores globales
     from utils.error_handlers import register_error_handlers
     register_error_handlers(app)
 
     @app.before_request
     def before_request():
-        # Establecer usuario para triggers de historial
         set_current_user_for_triggers()
+
+    # Zona horaria leída de config para ser portable entre entornos
+    db_timezone = app.config.get('DB_TIMEZONE', 'America/Mexico_City')
 
     @event.listens_for(Engine, "connect")
     def set_timezone(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
-        cursor.execute("SET TIME ZONE 'America/Mexico_City'")
+        cursor.execute(f"SET TIME ZONE '{db_timezone}'")
         cursor.close()
 
     return app
+
 
 if __name__ == '__main__':
     app = create_app()
