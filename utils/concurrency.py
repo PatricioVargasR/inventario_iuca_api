@@ -96,9 +96,10 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario,
         }
 
     try:
+        registro_id_casteado = int(registro_id)
         nuevo_bloqueo = BloqueoActivo(
             tabla=tabla,
-            registro_id=registro_id,
+            registro_id=registro_id_casteado,
             usuario_id=usuario_id,
             nombre_usuario=nombre_usuario,
             tipo_bloqueo=tipo_bloqueo,
