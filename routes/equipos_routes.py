@@ -205,8 +205,8 @@ def update_equipo(id):
 
 @equipos_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
-@lock_required('equipos_computo')
 @require_permission('computo', 'puede_eliminar')
+@lock_required('equipos_computo')
 def delete_equipo(id, bloqueo):
     """Eliminar equipo con verificación de bloqueo."""
 
