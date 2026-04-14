@@ -11,7 +11,7 @@ from utils.extesions import db
 
 
 def get_client_ip():
-    """Obtiene la IP real del cliente"""
+    """Obtiene la IP real del cliente."""
     if request.headers.get('X-Forwarded-For'):
         return request.headers.get('X-Forwarded-For').split(',')[0].strip()
     elif request.headers.get('X-Real-IP'):
@@ -20,7 +20,12 @@ def get_client_ip():
 
 
 def limpiar_bloqueos_expirados():
-    """Elimina bloqueos que ya expiraron"""
+    """
+    Elimina bloqueos que ya expiraron.
+
+    Solo se llama desde crear_bloqueo para no añadir un DELETE
+    extra a cada operación de lectura/verificación de bloqueos.
+    """
     try:
         BloqueoActivo.query.filter(
             BloqueoActivo.expira_en < datetime.now()
@@ -33,22 +38,23 @@ def limpiar_bloqueos_expirados():
 
 def obtener_bloqueo(tabla, registro_id):
     """
-    Obtiene el bloqueo activo de un registro
-    Retorna None si no hay bloqueo o si ya expiró
+    Obtiene el bloqueo activo de un registro.
+    Retorna None si no hay bloqueo. No dispara limpieza —
+    los registros expirados se filtran por fecha en la consulta.
     """
-    limpiar_bloqueos_expirados()
-
-    bloqueo = BloqueoActivo.query.filter_by(
-        tabla=tabla,
-        registro_id=registro_id
+    return BloqueoActivo.query.filter(
+        BloqueoActivo.tabla == tabla,
+        BloqueoActivo.registro_id == registro_id,
+        BloqueoActivo.expira_en > datetime.now(),
     ).first()
 
-    return bloqueo
 
-
-def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minutos=10, tipo_bloqueo='edicion'):
+def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario,
+                  duracion_minutos=10, tipo_bloqueo='edicion'):
     """
     Intenta crear un bloqueo para un registro.
+    Limpia bloqueos expirados antes de operar para evitar
+    conflictos de unicidad con registros fantasma.
 
     Args:
         tipo_bloqueo: 'edicion' o 'eliminacion'
@@ -56,30 +62,32 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
     Returns:
         tuple: (success: bool, data: dict)
     """
+    # La limpieza ocurre solo aquí: punto donde se escribe y donde
+    # los registros expirados podrían causar colisiones de unicidad.
     limpiar_bloqueos_expirados()
 
-    # Verificar si ya existe un bloqueo
     bloqueo_existente = BloqueoActivo.query.filter_by(
         tabla=tabla,
         registro_id=registro_id
     ).first()
 
     if bloqueo_existente:
-        # Si el bloqueo es del mismo usuario del mismo tipo, extender tiempo
-        if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo == tipo_bloqueo:
+        # Mismo usuario, mismo tipo → renovar expiración
+        if bloqueo_existente.usuario_id == usuario_id \
+                and bloqueo_existente.tipo_bloqueo == tipo_bloqueo:
             bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
 
-        # Si es del mismo usuario pero diferente tipo (ej: tenía edición y ahora quiere eliminar)
-        if bloqueo_existente.usuario_id == usuario_id and bloqueo_existente.tipo_bloqueo != tipo_bloqueo:
-            # Actualizar tipo y tiempo
+        # Mismo usuario, tipo distinto → actualizar tipo y renovar
+        if bloqueo_existente.usuario_id == usuario_id \
+                and bloqueo_existente.tipo_bloqueo != tipo_bloqueo:
             bloqueo_existente.tipo_bloqueo = tipo_bloqueo
             bloqueo_existente.expira_en = datetime.now() + timedelta(minutes=duracion_minutos)
             db.session.commit()
             return True, bloqueo_existente.to_dict()
 
-        # Si es de otro usuario, retornar error con info del tipo de bloqueo
+        # Otro usuario → bloqueo activo
         accion = 'editando' if bloqueo_existente.tipo_bloqueo == 'edicion' else 'eliminando'
         return False, {
             'error': 'locked_by_other',
@@ -87,7 +95,6 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
             'bloqueo': bloqueo_existente.to_dict()
         }
 
-    # Crear nuevo bloqueo
     try:
         nuevo_bloqueo = BloqueoActivo(
             tabla=tabla,
@@ -102,7 +109,7 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
         return True, nuevo_bloqueo.to_dict()
 
     except IntegrityError:
-        # Race condition: otro usuario creó el bloqueo justo ahora
+        # Race condition: otro proceso ganó la escritura simultánea
         db.session.rollback()
         bloqueo_existente = BloqueoActivo.query.filter_by(
             tabla=tabla,
@@ -120,11 +127,10 @@ def crear_bloqueo(tabla, registro_id, usuario_id, nombre_usuario, duracion_minut
         }
 
 
-
 def liberar_bloqueo(tabla, registro_id, usuario_id):
     """
-    Libera un bloqueo de edición
-    Solo el usuario que lo creó puede liberarlo
+    Libera el bloqueo de un registro.
+    Solo el usuario que lo creó puede liberarlo.
     """
     try:
         bloqueo = BloqueoActivo.query.filter_by(
@@ -145,11 +151,9 @@ def liberar_bloqueo(tabla, registro_id, usuario_id):
         print(f"Error liberando bloqueo: {e}")
         return False
 
+
 def liberar_todos_bloqueos_usuario(usuario_id):
-    """
-    Libera todos los bloqueos de un usuario
-    Útil al cerrar sesión
-    """
+    """Libera todos los bloqueos de un usuario. Útil al cerrar sesión."""
     try:
         BloqueoActivo.query.filter_by(usuario_id=usuario_id).delete()
         db.session.commit()
@@ -162,25 +166,18 @@ def liberar_todos_bloqueos_usuario(usuario_id):
 
 def verificar_version(modelo, registro_id, version_esperada):
     """
-    Verifica que la versión del registro coincida con la esperada
-    Retorna (es_valida: bool, version_actual: int)
+    Verifica que la versión del registro coincida con la esperada.
+    Retorna (es_valida: bool, version_actual: int).
     """
-    version_field = 'version'
-
     registro = modelo.query.get(registro_id)
-
     if not registro:
         return False, None
-
-    version_actual = getattr(registro, version_field)
-
+    version_actual = getattr(registro, 'version')
     return version_actual == version_esperada, version_actual
 
 
 def marcar_en_edicion(modelo, registro_id, usuario_id):
-    """
-    Marca un registro como 'en edición' por un usuario
-    """
+    """Marca un registro como 'en edición' por un usuario."""
     try:
         registro = modelo.query.get(registro_id)
         if registro:
@@ -196,9 +193,7 @@ def marcar_en_edicion(modelo, registro_id, usuario_id):
 
 
 def limpiar_marca_edicion(modelo, registro_id):
-    """
-    Limpia la marca de 'en edición' de un registro
-    """
+    """Limpia la marca de 'en edición' de un registro."""
     try:
         registro = modelo.query.get(registro_id)
         if registro:
