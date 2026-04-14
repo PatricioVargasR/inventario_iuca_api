@@ -1,14 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from models import BloqueoActivo, EquipoComputo, EspecificacionEquipo, EquipoResponsable, Usuario
+from models import EquipoComputo, EspecificacionEquipo, EquipoResponsable, Usuario
 from utils.decorators import require_permission
 from utils.validators import validate_equipo, ValidationError, handle_db_error
-from utils.concurrency import (
-    verificar_version,
-    liberar_bloqueo
-)
+from utils.concurrency import verificar_version, liberar_bloqueo
 from utils.lock_required import lock_required
+from utils.responsables import sync_responsables
 
 equipos_bp = Blueprint('equipos', __name__)
 
@@ -66,27 +64,21 @@ def create_equipo():
         db.session.flush()
 
         # Agregar especificaciones
-        if 'especificaciones' in data and data['especificaciones']:
-            for orden, spec in enumerate(data['especificaciones'], start=1):
-                especificacion = EspecificacionEquipo(
-                    equipo_id=equipo.id_activo,
-                    nombre_especificacion=spec['nombre_especificacion'].strip(),
-                    valor_especificacion=spec['valor_especificacion'].strip(),
-                    orden=orden
-                )
-                db.session.add(especificacion)
+        for orden, spec in enumerate(data.get('especificaciones') or [], start=1):
+            db.session.add(EspecificacionEquipo(
+                equipo_id=equipo.id_activo,
+                nombre_especificacion=spec['nombre_especificacion'].strip(),
+                valor_especificacion=spec['valor_especificacion'].strip(),
+                orden=orden
+            ))
 
-        # Agregar responsables (lista de IDs)
-        responsables_ids = data.get('responsables_ids', [])
-        for usuario_id in responsables_ids:
-            # Verificar que el usuario existe
-            usuario = Usuario.query.get(usuario_id)
-            if usuario:
-                responsable = EquipoResponsable(
+        # Agregar responsables iniciales
+        for usuario_id in data.get('responsables_ids') or []:
+            if Usuario.query.get(usuario_id):
+                db.session.add(EquipoResponsable(
                     equipo_id=equipo.id_activo,
                     usuario_id=usuario_id
-                )
-                db.session.add(responsable)
+                ))
 
         db.session.commit()
 
@@ -181,36 +173,21 @@ def update_equipo(id):
                     if spec_existente.orden != orden:
                         spec_existente.orden = orden
                 else:
-                    nueva_spec = EspecificacionEquipo(
+                    db.session.add(EspecificacionEquipo(
                         equipo_id=id,
                         nombre_especificacion=spec_data['nombre_especificacion'].strip(),
                         valor_especificacion=spec_data['valor_especificacion'].strip(),
                         orden=orden
-                    )
-                    db.session.add(nueva_spec)
+                    ))
 
-        # Diff de responsables: solo insertar/eliminar los que cambiaron
+        # Sincronizar responsables usando la utilidad compartida
         if 'responsables_ids' in data:
-            nuevos_ids = set(int(i) for i in data['responsables_ids'])
-            responsables_actuales = EquipoResponsable.query.filter_by(equipo_id=id).all()
-            actuales_ids = set(r.usuario_id for r in responsables_actuales)
-
-            # Eliminar los que ya no están
-            ids_a_eliminar = actuales_ids - nuevos_ids
-            for resp in responsables_actuales:
-                if resp.usuario_id in ids_a_eliminar:
-                    db.session.delete(resp)
-
-            # Agregar solo los nuevos
-            ids_a_agregar = nuevos_ids - actuales_ids
-            for usuario_id in ids_a_agregar:
-                usuario = Usuario.query.get(usuario_id)
-                if usuario:
-                    nuevo_resp = EquipoResponsable(
-                        equipo_id=id,
-                        usuario_id=usuario_id
-                    )
-                    db.session.add(nuevo_resp)
+            sync_responsables(
+                modelo_asignacion=EquipoResponsable,
+                entidad_id=id,
+                nuevos_ids=data['responsables_ids'],
+                campo_entidad='equipo_id',
+            )
 
         db.session.commit()
         liberar_bloqueo('equipos_computo', id, int(user_id))

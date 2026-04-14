@@ -178,14 +178,8 @@ def delete_responsable(id, bloqueo):
             partes.append(
                 f'{muebles_asignados} mueble{"s" if muebles_asignados > 1 else ""}'
             )
-        detalle = ' y '.join(partes)
-        total = equipos_asignados + muebles_asignados
         return jsonify({
-            'error': (
-                f'No se puede eliminar este responsable porque tiene {detalle} '
-                f'asignado{"s" if total > 1 else ""}. '
-                'Primero reasigna o elimina esos activos.'
-            )
+            'error': ('No se puede eliminar este responsable porque tiene elementos asignados.')
         }), 409
 
     try:

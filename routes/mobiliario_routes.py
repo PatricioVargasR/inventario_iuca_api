@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from models import BloqueoActivo, Mobiliario, MobiliarioResponsable, Usuario
+from models import Mobiliario, MobiliarioResponsable, Usuario
 from utils.concurrency import liberar_bloqueo, verificar_version
 from utils.decorators import require_permission
 from utils.validators import validate_mobiliario, ValidationError, handle_db_error
 from utils.lock_required import lock_required
+from utils.responsables import sync_responsables
 
 mobiliario_bp = Blueprint('mobiliario', __name__)
 
@@ -89,16 +90,13 @@ def create_mobiliario():
         db.session.add(mueble)
         db.session.flush()
 
-        # Agregar responsables (lista de IDs)
-        responsables_ids = data.get('responsables_ids', [])
-        for usuario_id in responsables_ids:
-            usuario = Usuario.query.get(usuario_id)
-            if usuario:
-                responsable = MobiliarioResponsable(
+        # Agregar responsables iniciales
+        for usuario_id in data.get('responsables_ids') or []:
+            if Usuario.query.get(usuario_id):
+                db.session.add(MobiliarioResponsable(
                     mueble_id=mueble.id_mueble,
                     usuario_id=usuario_id
-                )
-                db.session.add(responsable)
+                ))
 
         db.session.commit()
 
@@ -161,31 +159,16 @@ def update_mobiliario(id):
             if campo in data:
                 setter(data[campo])
 
-        # Diff de responsables: solo insertar/eliminar los que cambiaron
+        # Sincronizar responsables usando la utilidad compartida
         if 'responsables_ids' in data:
-            nuevos_ids = set(int(i) for i in data['responsables_ids'])
-            responsables_actuales = MobiliarioResponsable.query.filter_by(mueble_id=id).all()
-            actuales_ids = set(r.usuario_id for r in responsables_actuales)
-
-            # Eliminar los que ya no están
-            ids_a_eliminar = actuales_ids - nuevos_ids
-            for resp in responsables_actuales:
-                if resp.usuario_id in ids_a_eliminar:
-                    db.session.delete(resp)
-
-            # Agregar solo los nuevos
-            ids_a_agregar = nuevos_ids - actuales_ids
-            for usuario_id in ids_a_agregar:
-                usuario = Usuario.query.get(usuario_id)
-                if usuario:
-                    nuevo_resp = MobiliarioResponsable(
-                        mueble_id=id,
-                        usuario_id=usuario_id
-                    )
-                    db.session.add(nuevo_resp)
+            sync_responsables(
+                modelo_asignacion=MobiliarioResponsable,
+                entidad_id=id,
+                nuevos_ids=data['responsables_ids'],
+                campo_entidad='mueble_id',
+            )
 
         db.session.commit()
-
         liberar_bloqueo('mobiliario', id, int(user_id))
 
         return jsonify({
