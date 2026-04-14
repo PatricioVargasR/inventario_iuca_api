@@ -39,8 +39,5 @@ class Config:
     SECRET_KEY = _require_env('SECRET_KEY')
     DEBUG = os.getenv('FLASK_DEBUG', 'False') == 'True'
 
-    # Zona horaria de la BD — configurable por entorno
-    DB_TIMEZONE = os.getenv('TZ', 'America/Mexico_City')
-
     # Otros
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
